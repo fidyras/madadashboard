@@ -1,5 +1,5 @@
 ---
-title: "Covid-19 in Madagascar"
+title: "Covid-19 in Madagascar blabla"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
