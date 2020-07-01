@@ -113,6 +113,9 @@ Data are obtained from daily press briefings presented by the CoronaVirus Operat
 The details and accuracy of the figures presented here are contingent upon the publicly available information communicated to the public by the Government of Madagascar.
 
 
+contributors: C. Jessica Metcalf, Malavika Rajeev, Santatriniaina Randrianarisoa, Tanjona Ramiadantsoa, Fidisoa Rasambainarivo, Benjamin Rice.
+Support from 
+
 
 
 
@@ -375,6 +378,7 @@ deaths%>%filter(!is.na(Sex))%>%
   geom_histogram(aes(x=Age),position="dodge",binwidth=10)+theme_bw()+facet_grid(~Sex)->death_hist
 ggplotly(death_hist)
 ```
+
 
 ### Case Fatality Rate of the ongoing pandemic
 ```{r}
