@@ -3,6 +3,7 @@ title: "Covid-19 in Madagascar"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
+    social: menu
     vertical_layout: scroll
     theme: bootstrap
 ---
@@ -105,7 +106,7 @@ Sidebar {.sidebar}
 This country profile of Madagascar facing the COVID-19 pandemic includes interactive visualizations and limited explanations of the presented metrics.
 
 
-Data are obtained from daily press briefings presented by the CoronaVirus Operational Task force of the Government of Madagascar.
+Data are obtained from daily press briefings presented by the Coronavirus Operational Task force of the Government of Madagascar.
 
 
 
@@ -113,8 +114,6 @@ Data are obtained from daily press briefings presented by the CoronaVirus Operat
 The details and accuracy of the figures presented here are contingent upon the publicly available information communicated to the public by the Government of Madagascar.
 
 
-contributors: C. Jessica Metcalf, Malavika Rajeev, Santatriniaina Randrianarisoa, Tanjona Ramiadantsoa, Fidisoa Rasambainarivo, Benjamin Rice.
-Support from 
 
 
 
@@ -140,6 +139,10 @@ You can download our complete dataset here and the R code to all figures here
 Links to Versions in French and Malagasy.
 
 
+**Contributors**:
+C. Jessica Metcalf, Malavika Rajeev, Santatriniaina Randrianarisoa, Tanjona Ramiadantsoa, Fidisoa Rasambainarivo, Benjamin Rice.
+Support from: Metcalf Lab at Princeton University and Mahaliana Labs
+
 
 Row 
 -----------------------------------------------------------------------
@@ -157,7 +160,7 @@ valueBox(value=format(sum(cases_by_date$cases),big.mark = ","),
 IRD%>%filter(Type=="R")->recov
 valueBox(value=format(last(recov$Type.cum.sum),big.mark = ","),
          caption=paste("Number of recoveries reported in Madagascar since 20-March-2020 until", format(last(recov$Date), format="%B %d %Y")),
-         icon="fa-virus-slash",color="green")
+         icon="fa-virus-slash",color="success")
 ```
 
 ### Total deaths
@@ -193,7 +196,7 @@ gauge(round(last(positivity_ma$positivity.mov.avg),2),
 Row {data-width=650}
 -----------------------------------------------------------------------
 
-### Map of cases 
+### **Map of cases** 
 
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
@@ -379,22 +382,6 @@ deaths%>%filter(!is.na(Sex))%>%
 ggplotly(death_hist)
 ```
 
-
-### Case Fatality Rate of the ongoing pandemic
-```{r}
-cases_by_date%>%mutate(CFR=(deaths.cum.sum/cum.sum)*100)%>%
-  filter(!is.na(CFR))%>%filter(region!="unspecified")%>%
-  ggplot()+
-  geom_point(aes(x=Date,y=CFR,group=region,color=region))+
-  geom_line(aes(x=Date,y=CFR,group=region,color=region),se=FALSE)+
-  scale_x_date(date_breaks = "2 weeks") +
-  labs(title="Trends of Case Fatality Rate in Madagascar",y="CFR (%)")+
-  theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))->CFR
-cases_by_date%>%
-  group_by(Date)%>%
-  mutate(deaths.ntl=sum(deaths.cum.sum,na.rm=TRUE),cases.ntl=sum(cum.sum),CFR.ntl=(deaths.ntl/cases.ntl)*100)->CFR.ntl
-CFR+geom_smooth(data=CFR.ntl,aes(x=Date,y=CFR.ntl))+geom_point(data=CFR.ntl,aes(x=Date,y=CFR.ntl),size=0.5)
-```
 
 
 
