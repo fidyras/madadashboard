@@ -1,0 +1,21 @@
+{
+    "Raw File Name": "exported_boundaries_Alaotra-Mangoro.shp.zip", 
+    "Group": "Madagascar", 
+    "License": "ODbL", 
+    "country": "Madagascar", 
+    "Unnamed: 11": null, 
+    "Processed File Name": "MDG_ADM1.zip", 
+    "timestamp": 1534539070, 
+    "Known Errors": null, 
+    "datetime": "2018-08-17 16:51:10", 
+    "version": "1_3_3", 
+    "Unnamed: 12": null, 
+    "Source 2": "Wambacher (https://wambachers-osm.website/boundaries/)", 
+    "Source 1": "OpenStreetMap", 
+    "Year": 2017, 
+    "iso": "MDG", 
+    "adm": "ADM1", 
+    "Changes": "No", 
+    "Link to Source Data": null, 
+    "Boundary Level": "ADM 1"
+}
