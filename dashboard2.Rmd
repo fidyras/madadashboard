@@ -239,12 +239,12 @@ m<-leaflet()  %>%
 m%>%addProviderTiles(providers$Esri.WorldStreetMap)
 ```
 
-### Cumulative number of cases
+### **Cumulative number of cases**
 
 ```{r}
 ggplot(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region))+
   geom_area(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region),size=0.75)+
-  scale_fill_brewer(palette="Paired")+scale_x_date(date_breaks = "2 weeks")+theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+labs(title="Cumulative Number of cases reported",y="Number of cases")->cumulative_cases
+  scale_fill_brewer(palette="Paired")+scale_x_date(date_breaks = "2 weeks")+theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+labs(y="Number of cases")->cumulative_cases
 ggplotly(cumulative_cases)
 
 ```
@@ -255,7 +255,7 @@ Row {data-width=650}
 -----------------------------------------------------------------------
 
 
-### Time series New cases, Recoveries and deaths
+### **Time series New cases, Recoveries and deaths**
 
 ```{r}
 ggplot(data=IRD,aes(x=Date,y=Type.cum.sum,fill=Type))+
@@ -270,14 +270,14 @@ IRD_curve
 ```
 
 
-### Daily number of cases and moving average
+### **Daily number of cases and moving average**
 
 ```{r, warning=FALSE}
 daily.cases<-ggplot(data=ntl.cases,aes(x=Date,y=mov.avg))+
   geom_col(aes(x=Date,y=n.cases),position="dodge",alpha=0.6)+
   scale_x_date(date_breaks = "2 weeks") +
   geom_smooth(aes(x=Date,y=mov.avg,),size=0.7,method="gam")+
-  labs(title="Number of cases reported daily and 7-day moving average",subtitle =  "National level",y="Daily number of cases")+
+  labs(y="Daily number of cases")+
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))
 daily.cases<-daily.cases+geom_vline(aes(xintercept=Date),data=events)
 ggplotly(daily.cases)
@@ -285,13 +285,13 @@ ggplotly(daily.cases)
 
 Row {data-width=650}
 ----------------------------------
-### Daily Number of cases per region 
+### **Daily Number of cases per region** 
 ```{r cases_movavg, warning=FALSE}
 modavg.curv<-ggplot(data=cases_by_date,aes(x=Date,y=mov.avg))+
   geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.6)+
   scale_x_date(date_breaks = "2 weeks") +
   geom_smooth(aes(x=Date,y=mov.avg,group=region,colour=region),size=0.7,method="gam")+
-  labs(title="Number of cases reported daily and 7-day moving average",subtitle="Regional level",y="Daily number of cases")+
+  labs(y="Daily number of cases")+
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))
 ggplotly(modavg.curv)
 
