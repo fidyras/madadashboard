@@ -113,49 +113,50 @@ Country profile: Madagascar
 
 Sidebar {.sidebar}
 -----------------------------------------------------------------------
-This country profile of Madagascar facing the COVID-19 pandemic includes interactive visualizations and limited explanations of the presented metrics.
+This country profile of ** Madagascar facing the COVID-19 pandemic** includes interactive visualizations and limited explanations of the presented metrics.
 
 
 Data are obtained from daily press briefings presented by the Coronavirus Operational Task force of the Government of Madagascar.
 
 
-
-
 The details and accuracy of the figures presented here are contingent upon the publicly available information communicated to the public by the Government of Madagascar.
 
-
-
-
-
-
-
-
-
+  
+  
+  
+  
+\
+\
+\
 The data on the coronavirus cases presented on this dashboard are updated daily. 
 Last update: 
 ```{r}
 format(last(cases$Date),format="%B %d %Y")
 ```
 
-
-
-
+\
+\
+\
 You can download our complete dataset here and the R code to all figures here
-
-
-
-
-
+  
+  
+  
+  
+  
 Links to Versions in French and Malagasy.
 
-
+\
+\
+\
+\
+\
 **Contributors**:
 C. Jessica Metcalf, Malavika Rajeev,Tanjona Ramiadantsoa, Santatriniaina Randrianarisoa, Fidisoa Rasambainarivo, Benjamin Rice.
 
 
 
 
-**Support from**: The Center for Health and Wellbeing and Metcalf Lab at Princeton University and Mahaliana Labs
+**Support from**: The Center for Health and Wellbeing and [Metcalf Lab](https://metcalflab.princeton.edu) at Princeton University and [Mahaliana Labs](http://www.mahaliana.org)
 
 
 Row 
