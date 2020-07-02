@@ -307,7 +307,7 @@ Row
 
 ### Total tests performed: How many tests did Madagascar perform so far?
 ```{r}
-valueBox(value=format(last(test$Total.tests),big.mark = ","),caption=paste("Total Number of tests performed in Madagascar since 20-March-2020", Sys.Date()),
+valueBox(value=format(last(test$Total.tests),big.mark = ","),caption=paste("Total Number of tests performed in Madagascar between 20-March-2020 and",format(last(test$Date),format= "%B %d %Y")),
          icon="fa-flask",color=ifelse(last(test$Total.tests)/27692<5,"warning","info"))
 ```
 
