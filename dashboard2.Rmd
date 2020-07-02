@@ -317,7 +317,9 @@ valueBox(value=format(round(last(test$Total.tests/27692),2),big.mark = ","),capt
          icon="fa-flask",color=ifelse(last(test$Total.tests)/27.692<5,"warning","info"))
 ```
 
-###**Positivity (7-day moving avergage)**
+### Positivity (7-day moving avergage)
+
+
 ```{r}
 positivity_ma<-ntl.cases%>%filter(!is.na(positivity.mov.avg))
 gauge(round(last(positivity_ma$positivity.mov.avg),2),min=0,max=100,symbol='%',label="Positivity rate",abbreviateDecimals = 2,
