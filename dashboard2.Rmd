@@ -396,7 +396,7 @@ Row {data-width=650}
 
 deaths%>%filter(!is.na(Sex))%>%
   ggplot()+
-  geom_histogram(aes(x=Age),position="dodge",binwidth=10)+labs(y="number of deceased individuals") +theme_bw()+facet_grid(~Sex)->death_hist
+  geom_histogram(aes(x=Age),position="dodge",binwidth=5,fill="#7570B3")+labs(y="number of deceased individuals") +theme_bw()+facet_grid(~Sex)+scale_y_continuous(limits=c(0,5))->death_hist
 ggplotly(death_hist)
 ```
 
