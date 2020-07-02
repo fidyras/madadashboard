@@ -6,6 +6,19 @@ output:
     social: [ "twitter", "facebook", "menu" ]
     vertical_layout: scroll
     theme: bootstrap
+    includes:
+      in header:<script async src="https://www.googletagmanager.com/gtag/js?id=UA-171535820-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-171535820-1');
+</script>
+
+
+
+
 ---
 
 ```{r setup, include=FALSE}
@@ -142,7 +155,10 @@ Links to Versions in French and Malagasy.
 **Contributors**:
 C. Jessica Metcalf, Malavika Rajeev,Tanjona Ramiadantsoa, Santatriniaina Randrianarisoa, Fidisoa Rasambainarivo, Benjamin Rice.
 
-***Support from***: The Center for Health and Wellbeing and Metcalf Lab at Princeton University and Mahaliana Labs href: "https://example.com/about"
+
+
+
+**Support from**: The Center for Health and Wellbeing and Metcalf Lab at Princeton University and Mahaliana Labs
 
 
 Row 
