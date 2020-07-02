@@ -3,7 +3,7 @@ title: "Covid-19 in Madagascar"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
-    social: menu
+    social: [ "twitter", "facebook", "menu" ]
     vertical_layout: scroll
     theme: bootstrap
 ---
@@ -140,8 +140,9 @@ Links to Versions in French and Malagasy.
 
 
 **Contributors**:
-C. Jessica Metcalf, Malavika Rajeev, Santatriniaina Randrianarisoa, Tanjona Ramiadantsoa, Fidisoa Rasambainarivo, Benjamin Rice.
-Support from: Metcalf Lab at Princeton University and Mahaliana Labs
+C. Jessica Metcalf, Malavika Rajeev,Tanjona Ramiadantsoa, Santatriniaina Randrianarisoa, Fidisoa Rasambainarivo, Benjamin Rice.
+
+***Support from***: The Center for Health and Wellbeing and Metcalf Lab at Princeton University and Mahaliana Labs href: "https://example.com/about"
 
 
 Row 
@@ -166,7 +167,7 @@ valueBox(value=format(last(recov$Type.cum.sum),big.mark = ","),
 ### Total deaths
 ```{r}
 valueBox(value=sum(cases_by_date$deaths,na.rm=TRUE), 
-         caption="Total Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020",color="danger",icon="fa-heartbeat")
+         caption="Total Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020",color="danger",icon="fa-heartbeat",href="### Total deaths")
 ```
 
 
@@ -334,6 +335,8 @@ ggplotly(tests.ts)
 
 
 ```
+
+
 ### Trends in Positivity rate and 7 days moving average
 ```{r}
 
@@ -378,7 +381,7 @@ Row {data-width=650}
 
 deaths%>%filter(!is.na(Sex))%>%
   ggplot()+
-  geom_histogram(aes(x=Age),position="dodge",binwidth=10)+theme_bw()+facet_grid(~Sex)->death_hist
+  geom_histogram(aes(x=Age),position="dodge",binwidth=10)+labs(y="number of deceased individuals") +theme_bw()+facet_grid(~Sex)->death_hist
 ggplotly(death_hist)
 ```
 
