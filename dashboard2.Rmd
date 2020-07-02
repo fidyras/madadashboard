@@ -127,7 +127,6 @@ The details and accuracy of the figures presented here are contingent upon the p
   
 \
 \
-\
 The data on the coronavirus cases presented on this dashboard are updated daily. 
 Last update: 
 ```{r}
@@ -135,12 +134,6 @@ format(last(cases$Date),format="%B %d %Y")
 ```
 
 \
-\
-\
-You can download our complete dataset here and the R code to all figures here
-  
-  
-  
   
   
 Links to Versions in French and Malagasy.
