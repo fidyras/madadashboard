@@ -62,16 +62,15 @@ cases_by_date%>%rename(cases=Freq)%>%
   group_by(region)%>%
   mutate(cum.sum=cumsum(cases))%>%#compute cumulative number of cases per region
   mutate(mov.avg=rollmeanr(cases,7,fill="extend"))->cases_by_date#compute 7 days moving average per region
+
 deaths$Age<-as.numeric(deaths$Age)
 deaths_by_date<-as.data.frame(xtabs( ~ Date+region , deaths))
 deaths_by_date$Date<-as.Date(deaths_by_date$Date)
 deaths_by_date%>%
   rename(deaths=Freq)%>%
   group_by(region)%>%
-  mutate(deaths.cum.sum=cumsum(deaths))%>%#compute cumulative number of deaths per region
-  mutate(deaths.mov.avg=rollmeanr(deaths,7,fill="extend"))->deaths_by_date
-deaths_by_date%>% #compute 7 days moving average
-  right_join(cases_by_date)->cases_by_date
+  mutate(deaths.cum.sum=cumsum(deaths))->deaths_by_date
+
 #IRD for infected (new cases), Recovered (R) and Removed (D)
 IRD<-as.data.frame(xtabs( ~ data$Date+data$Type))
 IRD%>%rename("Date"=1,"Type"=2,"n"=3)%>%filter(Type!="S")->IRD
@@ -91,22 +90,24 @@ Diff.previous<-data.frame("Date"=test$Date[c(2:length(test$Total.tests))],
                           "tests.diff"=diff(test$Total.tests, lag = 1,na.rm=T),                                        "time.diff"=as.integer(diff.Date(test$Date)))%>%
   filter(!is.na(tests.diff)&time.diff==1)#table of daily test (when  there is exactly 1 day between two available "numbers of tests")
 
-cases%>%group_by(Date)%>%
-  summarise(n.cases=sum(Type=="N"))%>%arrange(Date)%>%
-  mutate(cum.cases=cumsum(n.cases),mov.avg=rollmeanr(n.cases,7,fill="extend"))%>%
+data%>%
+  group_by(Date)%>%
+  summarise(n.cases=sum(Type=="N"),n.deaths=sum(Type=="D"))%>%
+  arrange(Date)%>%
+  mutate(cum.cases=cumsum(n.cases),mov.avg=rollmeanr(n.cases,7,fill="extend"),
+         cum.deaths=cumsum(n.deaths),d.mov.avg=rollmeanr(n.deaths,7,fill="extend"))%>%
   right_join(test)%>%
-  left_join(Diff.previous)%>%
-  mutate(tests.mov.avg=rollmeanr(tests.diff,7,fill="extend"))%>%
+  left_join(Diff.previous)%>%arrange(Date)%>%
+  mutate(tests.mov.avg=rollmeanr(tests.diff,5,fill="extend"))%>%
   mutate(positivity=(n.cases/tests.diff)*100)%>%
-  mutate(positivity.mov.avg=rollmeanr(positivity,7,fill="extend"))%>%
-  select(Date,n.cases,cum.cases,mov.avg,n.tests=tests.diff,cum.tests=Total.tests,tests.mov.avg,positivity,positivity.mov.avg)->ntl.cases
+  mutate(positivity.mov.avg=rollmeanr(positivity,5,fill="extend"))%>%
+  select(Date,n.cases,cum.cases,mov.avg,n.deaths,cum.deaths,d.mov.avg,n.tests=tests.diff,cum.tests=Total.tests,tests.mov.avg,positivity,positivity.mov.avg)->ntl.cases
+
 
 ntl.cases<-ntl.cases[order(ntl.cases$Date,na.last=FALSE),]
 ntl.cases$cum.cases<-na.locf(ntl.cases$cum.cases)
+ntl.cases$cum.deaths<-na.locf(ntl.cases$cum.deaths)
 ntl.cases$Date<-as.Date(ntl.cases$Date)
-
-events$Date<-as.Date(events$`Start date`)
-events$event<-events$`Events/Measures`
 
 ```
 Country profile: Madagascar
@@ -120,12 +121,10 @@ This country profile of **Madagascar facing the COVID-19 pandemic** includes int
 Data are obtained from daily press briefings presented by the [Coronavirus Operational Task force](http://cco-covid19.gov.mg/fr/accueil) of the Government of Madagascar.
 
 
-**The details and accuracy of the figures presented here are contingent upon the _publicly available_ information communicated by the Government of Madagascar through the press.** 
-
   
+Testing laboratories include [Institut pasteur de Madagascar](www.pasteur.mg), [the Centre d'Infectiologie Charles Merieux](https://cicm-madagascar.com), the HJRA hospital and the Laboratoire d'Analyses Medicales de Madagascar. 
   
-  
-  
+**The details and accuracy of the figures presented here are contingent upon the _publicly available_ information communicated by the Government of Madagascar _through the press_.**   
 \
 \
 The data on the coronavirus cases presented on this dashboard are updated daily. 
@@ -138,7 +137,7 @@ Links to versions in French and Malagasy. (coming soon)
 \
 \
 **Contributors**:
-C. Jessica Metcalf, Malavika Rajeev,Tanjona Ramiadantsoa, Santatriniaina Randrianarisoa, Fidisoa Rasambainarivo, Benjamin Rice.
+Fidisoa Rasambainarivo, Santatriniaina Randrianarisoa, Tanjona Ramiadantsoa, Benjamin Rice Malavika Rajeev and C. Jessica Metcalf,  .
 
 
 
@@ -175,7 +174,7 @@ valueBox(value=format(last(recov$Type.cum.sum),big.mark = ","),
 
 ### Total deaths
 ```{r}
-valueBox(value=sum(cases_by_date$deaths,na.rm=TRUE), 
+valueBox(value=sum(cases_by_region$deaths,na.rm=TRUE), 
          caption="Total Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020",color="danger",icon="fa-heartbeat",href="### Total deaths")
 ```
 
@@ -186,6 +185,15 @@ valueBox(value=format(last(test$Total.tests),big.mark = ","),caption=paste("Tota
          icon="fa-flask",color=ifelse(last(test$Total.tests)/27692<5,"warning","info"))
 ```
 
+Row
+------------------------
+### Notes and announcements
+
+**As of yesterday, July 2nd 2020, the press briefings failed to report the location (region) of a number of positive cases. It is unclear whether these were from patients in any of the affected regions or in "new regions"** 
+
+**Age and sex of deceased individuals are not reported anymore either.**
+
+These omissions will affect the accuracy of some figures presented below
 
 
 
@@ -194,6 +202,8 @@ Row {data-width=650}
 -----------------------------------------------------------------------
 
 ### **Map of cases**: How many cases have been detected in each regions of Madagascar. 
+
+The press briefings failed to report the origin of some cases. These omissions will affect the accuracy of the figures below
 
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
@@ -206,7 +216,7 @@ labels <- sprintf(
       mada_regions$NAME, mada_regions$cases, mada_regions$deaths
     ) %>% lapply(htmltools::HTML)
     
-m<-leaflet()  %>%
+map <-leaflet()  %>%
   addTiles()%>%
   addPolygons(data = mada_regions,
               color = "black", weight = 0.001, smoothFactor = 0.1,
@@ -225,7 +235,7 @@ m<-leaflet()  %>%
                 textsize = "15px",
                 direction = "auto")) %>%
   addLegend("bottomright", pal = pal, values = bins, title = "Number of reported cases")
-m%>%addProviderTiles(providers$Esri.WorldStreetMap)
+map %>%addProviderTiles(providers$Esri.WorldStreetMap)
 ```
 
 ### **COVID 19 in Madagascar?**
@@ -239,7 +249,7 @@ Nevertheless, COVID 19 was first detected in Madagascar on **March 20, 2020** fr
 
 Authorities declared a Public Health Emergency through which, confinement measures were set in order to limit movement within and between regions of the Island. Some of these measures have since been relaxed.
 
-Testing is available in the country mainly for suspected cases. The [Institut Pasteur de Madagascar](www.pasteur.mg) acquired the capabilities to conduct the tests in January 2020 and has conducted more than 14 000 tests so far. Recently, three other laboratories acquired the capabilities to conduct the tests too and collectively, these laboratories aim at conducting more than 1,000 tests/day.
+Testing is available in the country mainly for suspected cases. The [Institut Pasteur de Madagascar](www.pasteur.mg) acquired the capabilities to conduct the tests in January 2020 and has conducted more than 14 000 tests so far. Recently, three other laboratories acquired the capabilities to conduct the tests too. Collectively, these laboratories conduct **on average `r format(round(last(na.trim(ntl.cases$tests.mov.avg)),2),big.mark = ",")` every day  (5 day moving average)**.
 
 As of **`r format(last(cases_by_date$Date),format="%B %d %Y")`**, Madagascar has confirmed **`r format(sum(cases_by_date$cases),big.mark = ",")`** cases in `r n_distinct(data$Location4,na.rm=TRUE)` regions and `r length(deaths$Id)` deaths.
 
@@ -253,7 +263,6 @@ Row {data-width=650}
 ```{r}
 ggplot(data=IRD,aes(x=Date,y=Type.cum.sum,fill=Type))+
   geom_area(data=IRD,aes(x=Date,y=Type.cum.sum,fill=Type),alpha=0.7,size=2,position="dodge")+
-  geom_line()+
   scale_fill_discrete(labels=c("New cases","Recovered","Deaths"),breaks=c("N","R","D"))+
   scale_x_date(date_breaks = "2 weeks")+
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+
@@ -267,9 +276,15 @@ ggplotly(IRD_curve)
 
 
 ```{r}
+library(ggthemes)
+library(scales)
+library(RColorBrewer)
+
+colourCount =length(unique(cases_by_date$region))
+mycolors <- colorRampPalette(brewer.pal(8, "Paired"))(colourCount)
 ggplot(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region))+
   geom_area(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region),size=0.75)+
-  scale_fill_brewer(palette="Paired")+scale_x_date(date_breaks = "2 weeks")+theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+labs(y="Number of cases")->cumulative_cases
+  scale_fill_manual(values=mycolors)+scale_x_date(date_breaks = "2 weeks")+theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+labs(y="Number of cases")->cumulative_cases
 ggplotly(cumulative_cases)
 
 ```
@@ -320,7 +335,7 @@ ggplotly(modavg.curv)
 **Case**: An individual who obtained a positive result after a molecular test by RT-PCR from one of the approved laboratories in the country, whether or not the patient presented symptoms to the disease.
 The reported case figures on a given date does not necessarily show the number of new cases on that day: this is due to delays in testing and reporting.
 
-**Moving average**: The 7 day moving average is calculated everyday and consists of the average of the values of an indicator (e.g. cases) during the previous 7 days. It allows to evaluate the overall trend of this indicator and helps prevent major events from skewing the data.
+**Moving average**: The 5 or 7 day moving average is calculated everyday and consists of the average of the values of an indicator (e.g. cases) during the previous 5 or 7 days respectively. It allows to evaluate the overall trend of this indicator and helps prevent major events from skewing the data.
 
 **Positivity rate**: This corresponds to the proportion of confirmed cases per 100 tests performed. The WHO has suggested a positivity rate of around 3–12% as a general benchmark of adequate testing. [reference](https://www.who.int/docs/default-source/coronaviruse/transcripts/who-audio-emergencies-coronavirus-press-conference-full-30mar2020.pdf?sfvrsn=6b68bc4a_2)
 
@@ -342,8 +357,7 @@ valueBox(value=format(round(last(test$Total.tests/27692),2),big.mark = ","),capt
          icon="fa-vial",color=ifelse(last(test$Total.tests)/27.692<5,"warning","info"))
 ```
 
-### Positivity (7-day moving average)
-
+### Positivity (5-day moving average)
 
 ```{r}
 positivity_ma<-ntl.cases%>%filter(!is.na(positivity.mov.avg))
@@ -353,12 +367,20 @@ gauge(round(last(positivity_ma$positivity.mov.avg),2),min=0,max=100,symbol='%',l
 
 
 
+### Daily tests (moving average)
+```{r}
+
+valueBox(value=format(round(last(na.trim(ntl.cases$tests.mov.avg)),2),big.mark = ","), caption="Daily number of tests (5 days moving average)",
+         icon="fa-vial",color=ifelse(ntl.cases$tests.mov.avg<500,"warning","info"))
+```
+
+
 Row
 ------------
 ### **Time series of tests**
 
 ```{r}
-ntl.cases%>%select(c(1,2,5))%>%pivot_longer(cols=c(2,3))%>%
+ntl.cases%>%select(c(Date,"New cases"=n.cases,"Tests"=n.tests))%>%pivot_longer(cols=c(2,3))%>%
 ggplot( aes(x = Date, y = value,fill=name)) +
   geom_col(size=0.5,position="dodge") +
   #geom_point(size=0.5)+
@@ -374,19 +396,19 @@ ggplotly(tests.ts)
 ```
 
 
-### **Daily positivity rate and 7 days moving average**
+### **Daily positivity rate and 5 days moving average**
 ```{r}
 
 
-ntl.cases%>%select(c(1,8,9))%>%
+ntl.cases%>%select(c(Date,"positivity"=positivity,"Moving.average"=positivity.mov.avg))%>%
   #pivot_longer(cols=c(2,3))%>%
 ggplot( aes(x = Date)) +
   geom_col(aes(y=positivity,fill="positivity"),size=0.5,alpha=0.7) +
-  geom_line(aes(y=positivity.mov.avg,color="positivity.mov.avg"),size=1)+
+  geom_line(aes(y= Moving.average,color="Moving.average"),size=1)+
   scale_x_date(date_breaks = "2 weeks",limits = c(as.Date("2020-05-18"),Sys.Date())) +
   labs(y = "Daily positivity (%)")+
   scale_fill_manual(name = "", values = c("positivity" = "chartreuse4"),labels="daily positivity") +
-  scale_color_manual(name = "", values = c("positivity.mov.avg" = "red4")) +
+  scale_color_manual(name = "", values = c("Moving.average" = "red4")) +
 
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1)) -> positivity.ts
 ggplotly(positivity.ts)
@@ -402,7 +424,7 @@ Row
 ### **Total deaths**
 ```{r}
 
-valueBox(value=sum(cases_by_date$deaths,na.rm=TRUE), caption="Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020",color="danger",icon="fa-heartbeat")
+valueBox(value=sum(cases_by_region$deaths,na.rm=TRUE), caption="Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020",color="danger",icon="fa-heartbeat")
 ```
 
 ### **Overall case fatality rate**
@@ -414,6 +436,15 @@ valueBox(value=paste(round(100*sum(cases_by_region$deaths)/sum(cases_by_region$c
          color="danger")
 ```
 
+### **daily deaths**
+```{r}
+
+valueBox(value=round(last(ntl.cases$d.mov.avg),2),
+         caption="Daily COVID-19 deaths (7 days moving average)",
+         icon="fa-bible",
+         color=ifelse(last(ntl.cases$d.mov.avg)<1,"warning","danger"))
+```
+
 Row {data-width=650}
 ----------------------------
 ### **Age and Sex of deceased**
@@ -423,6 +454,22 @@ deaths%>%filter(!is.na(Sex))%>%
   ggplot()+
   geom_histogram(aes(x=Age),position="dodge",binwidth=5,fill="#7570B3")+labs(y="number of deceased individuals",caption="The age and sex of some individuals were not specified during the press briefings and are not presented on this graph") +theme_bw()+facet_grid(~Sex)+scale_y_continuous(limits=c(0,5))->death_hist
 death_hist
+
+```
+
+### ***How many people have died on this day and average daily death rate?***
+```{r}
+ntl.cases%>%rename("deaths"=n.deaths,"moving.average"=d.mov.avg)%>%
+  ggplot(aes(x=Date))+
+  geom_col(aes(y=deaths,fill="deaths"))+
+  geom_line(aes(y=moving.average,color="moving.average"),size=1)+
+  labs(y="number of deceased individuals per day")+
+  scale_x_date(date_breaks = "2 weeks") +
+  scale_y_continuous(limits=c(0,5))+
+  scale_fill_manual(name = "", values = c("deaths" = "#1f78b4"),labels="number of deaths") +
+  scale_color_manual(name = "", values = c("moving.average" = "#fdbf6f")) +
+  theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))->death_time
+ggplotly(death_time)
 
 ```
 
