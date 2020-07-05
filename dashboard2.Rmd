@@ -208,8 +208,8 @@ The press briefings failed to report the origin of some cases. These omissions w
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
 
-bins <- pretty(cases_by_region$cases)
-pal <- colorNumeric("YlOrRd", domain = mada_regions$cases)
+bins <- pretty(cases_by_region$cases,n=6)
+pal <- colorNumeric("Paired", domain = mada_regions$cases)
 
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
