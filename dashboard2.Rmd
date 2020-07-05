@@ -122,8 +122,6 @@ Data are obtained from daily press briefings presented by the [Coronavirus Opera
 
 
   
-Testing laboratories include [Institut pasteur de Madagascar](www.pasteur.mg), [the Centre d'Infectiologie Charles Merieux](https://cicm-madagascar.com), the HJRA hospital and the Laboratoire d'Analyses Medicales de Madagascar. 
-  
 **The details and accuracy of the figures presented here are contingent upon the _publicly available_ information communicated by the Government of Madagascar _through the press_.**   
 \
 \
@@ -249,7 +247,7 @@ Nevertheless, COVID 19 was first detected in Madagascar on **March 20, 2020** fr
 
 Authorities declared a Public Health Emergency through which, confinement measures were set in order to limit movement within and between regions of the Island. Some of these measures have since been relaxed.
 
-Testing is available in the country mainly for suspected cases. The [Institut Pasteur de Madagascar](www.pasteur.mg) acquired the capabilities to conduct the tests in January 2020 and has conducted more than 14 000 tests so far. Recently, three other laboratories acquired the capabilities to conduct the tests too. Collectively, these laboratories conduct **on average `r format(round(last(na.trim(ntl.cases$tests.mov.avg)),2),big.mark = ",")` every day  (5 day moving average)**.
+Testing is available in the country mainly for suspected cases. The [Institut Pasteur de Madagascar](www.pasteur.mg) acquired the capabilities to conduct the tests in January 2020 and has conducted more than 14 000 tests so far. Recently, three other laboratories acquired the capabilities to conduct the tests too. Testing laboratories include [Institut pasteur de Madagascar](www.pasteur.mg), [the Centre d'Infectiologie Charles Merieux](https://cicm-madagascar.com), the HJRA hospital and the Laboratoire d'Analyses Medicales de Madagascar.  Collectively, these laboratories conduct **on average `r format(round(last(na.trim(ntl.cases$tests.mov.avg)),2),big.mark = ",")` every day  (5 day moving average)**.
 
 As of **`r format(last(cases_by_date$Date),format="%B %d %Y")`**, Madagascar has confirmed **`r format(sum(cases_by_date$cases),big.mark = ",")`** cases in `r n_distinct(data$Location4,na.rm=TRUE)` regions and `r length(deaths$Id)` deaths.
 
