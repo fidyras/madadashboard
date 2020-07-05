@@ -189,7 +189,7 @@ Row
 ------------------------
 ### Notes and announcements
 
-**As of yesterday, July 2nd 2020, the press briefings failed to report the location (region) of a number of positive cases. It is unclear whether these were from patients in any of the affected regions or in "new regions"** 
+**On July 2nd 2020, the press briefings failed to report the location (region) of a number of positive cases. It is unclear whether these were from patients in any of the affected regions or in "new regions"** 
 
 **Age and sex of deceased individuals are not reported anymore either.**
 
