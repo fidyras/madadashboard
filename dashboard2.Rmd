@@ -206,8 +206,8 @@ The press briefings failed to report the origin of some cases. These omissions w
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
 
-bins <- pretty(cases_by_region$cases,n=6)
-pal <- colorNumeric("Paired", domain = mada_regions$cases)
+bins <- pretty(cases_by_region$cases,n=12)
+pal <- colorBin("Paired", domain = mada_regions$cases)
 
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
@@ -295,9 +295,9 @@ Row {data-width=650}
 
 ```{r, warning=FALSE}
 daily.cases<-ggplot(data=ntl.cases,aes(x=Date,y=mov.avg))+
-  geom_col(aes(x=Date,y=n.cases,fill="n.cases"),position="dodge",alpha=0.6)+
+  geom_col(aes(x=Date,y=n.cases,fill="n.cases"),position="dodge",alpha=0.4)+
   scale_x_date(date_breaks = "2 weeks") +
-  geom_smooth(aes(x=Date,y=mov.avg,color="mov.avg"),size=0.7,method="gam")+
+  geom_line(aes(x=Date,y=mov.avg,color="mov.avg"),size=1)+
   labs(y="Daily number of cases")+
   scale_fill_manual(name = "", values = c("n.cases" = "#1B9E77")) +
   scale_color_manual(name= "",values = c("mov.avg" = "#E6AB02")) +
