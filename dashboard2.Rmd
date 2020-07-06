@@ -6,8 +6,12 @@ output:
     social: [ "twitter", "facebook", "menu" ]
     vertical_layout: scroll
     theme: bootstrap
-
-
+    navbar:
+      - { title: "<img style=\"width: 16px;\" src=\"www/us16.png\" />   English", href: "index.html"}
+      - { title: "<img style=\"width: 16px;\" src=\"www/mada16.png\" />   Malagasy", href: "dashboard_MG.html"}
+      - { title: "<img style=\"width: 16px;\" src=\"www/france16.png\" />   French", href: "dashboard_FR.html"}
+params:
+  lang: "EN"
 ---
 
 <!-- Google Tag Manager -->
@@ -31,6 +35,7 @@ library(dygraphs)
 library(zoo)
 library(forecast)
 library(stringdist)
+library(glue)
 ```
 
 
@@ -41,6 +46,8 @@ gs4_deauth()
 data <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 5)
 test <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 6)
 events <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 8)
+text <- read_sheet("https://docs.google.com/spreadsheets/d/14N9y4A9MLeYeNyAIdWRwluwhSxQdBi7DT_2CDuf_LUg/edit#gid=0")
+
 # shapefiles
 mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
 
@@ -96,51 +103,65 @@ data%>%
   arrange(Date)%>%
   mutate(cum.cases=cumsum(n.cases),mov.avg=rollmeanr(n.cases,7,fill="extend"),
          cum.deaths=cumsum(n.deaths),d.mov.avg=rollmeanr(n.deaths,7,fill="extend"))%>%
-  right_join(test)%>%
-  left_join(Diff.previous)%>%arrange(Date)%>%
+  right_join(mutate(test, Date = ymd(Date))) %>%
+  left_join(mutate(Diff.previous, Date = ymd(Date))) %>%
+  arrange(Date)%>%
   mutate(tests.mov.avg=rollmeanr(tests.diff,5,fill="extend"))%>%
   mutate(positivity=(n.cases/tests.diff)*100)%>%
   mutate(positivity.mov.avg=rollmeanr(positivity,5,fill="extend"))%>%
-  select(Date,n.cases,cum.cases,mov.avg,n.deaths,cum.deaths,d.mov.avg,n.tests=tests.diff,cum.tests=Total.tests,tests.mov.avg,positivity,positivity.mov.avg)->ntl.cases
+  select(Date,n.cases,cum.cases,mov.avg,n.deaths,cum.deaths,d.mov.avg,n.tests=tests.diff,cum.tests=Total.tests,tests.mov.avg,positivity,positivity.mov.avg)-> ntl.cases
 
 
 ntl.cases<-ntl.cases[order(ntl.cases$Date,na.last=FALSE),]
 ntl.cases$cum.cases<-na.locf(ntl.cases$cum.cases)
 ntl.cases$cum.deaths<-na.locf(ntl.cases$cum.deaths)
 ntl.cases$Date<-as.Date(ntl.cases$Date)
-
 ```
+
+``` {r translation}
+# Set up language for rest of dashboard
+text <- mutate(text, lang = get(params$lang))
+
+# helper functions to pull correct language (defaults to English when no available translation)
+
+# larger chunks of text by a reference
+translate <- function(ref) {
+  txt <- text$lang[text$ref %in% ref]
+  if (identical(txt, character(0)) | is.na(txt)) {
+    glue(text$EN[text$ref %in% ref])
+  } else {
+    glue(txt)
+  }
+}
+
+# single line by the actual text in English
+translate.sl <- function(sl) {
+  txt <- text$lang[text$EN %in% sl]
+  if (identical(txt, character(0)) | is.na(txt)) {
+    glue(text$EN[text$EN %in% sl])
+  } else {
+    glue(txt)
+  }
+}
+
+# Notes on translation:
+# For longer chunks you can use the ref column to match your text
+# For single line labels etc, you can just search for the English text (see the value boxes as an example!)
+# See the google sheet linked here for translations, write the translations using Rmd syntax!
+```
+
 Country profile: Madagascar
 ========================================================================
 
 Sidebar {.sidebar}
 -----------------------------------------------------------------------
-This country profile of **Madagascar facing the COVID-19 pandemic** includes interactive visualizations and limited explanations on the current situation of the outbreak in Madagascar.
 
+```{r sidebar, results='asis', verbatim=TRUE}
 
-Data are obtained from daily press briefings presented by the [Coronavirus Operational Task force](http://cco-covid19.gov.mg/fr/accueil) of the Government of Madagascar.
+date_updated <- format(last(cases$Date),format="%B %d %Y") # any inline stats you need ahead of time!
+translate("sidebar")
 
-
-  
-**The details and accuracy of the figures presented here are contingent upon the _publicly available_ information communicated by the Government of Madagascar _through the press_.**   
-\
-\
-The data on the coronavirus cases presented on this dashboard are updated daily. 
-Last update: 
-**`r format(last(cases$Date),format="%B %d %Y")`**
-
-\
-Links to versions in French and Malagasy. (coming soon)
-
-\
-\
-**Contributors**:
-C. Jessica Metcalf, Malavika Rajeev, Tanjona Ramiadantsoa, Santatriniaina Randrianarisoa, Fidisoa Rasambainarivo and  Benjamin Rice.
-
-
-
-
-**Support from**: The Center for Health and Wellbeing and [Metcalf Lab](https://metcalflab.princeton.edu) at Princeton University and [Mahaliana Labs](http://www.mahaliana.org)
+```
 
 
 Row 
@@ -150,50 +171,47 @@ Row
 
 ```{r}
 valueBox(value=format(sum(cases_by_date$cases),big.mark = ","),
-         caption=paste("Number of cases reported in Madagascar since 20-March-2020 until", format(last(cases_by_date$Date), format="%B %d %Y")),
+         caption=paste(translate.sl("Number of cases reported in Madagascar since 20-March-2020 until"), 
+                            format(last(cases_by_date$Date), format="%B %d %Y")),
          icon="fa-ambulance",color="info")
 ```
 
-### Daily new cases (7 days moving average)
+### Daily cases
 
 ```{r}
 valueBox(value=format(last(ntl.cases$mov.avg),big.mark = ",",digits=3),
-         caption=paste("Moving average of daily new cases", format(last(cases_by_date$Date), format="%B %d %Y")),
-         icon="fa-chart-line",color="danger")
+         caption=paste(translate.sl("Daily new cases (7 days moving average)"), format(last(cases_by_date$Date), format="%B %d %Y")),
+         icon="fa-chart-line", color="danger")
 ```
 
-### Total Recovered
+### Recovered cases
 ```{r}
 IRD%>%filter(Type=="R")->recov
 valueBox(value=format(last(recov$Type.cum.sum),big.mark = ","),
-         caption=paste("Number of recoveries reported in Madagascar since 20-March-2020 until", format(last(recov$Date), format="%B %d %Y")),
-         icon="fa-check-circle",color="success")
+         caption=paste(translate.sl("Number of recoveries reported in Madagascar since 20-March-2020 until"), format(last(cases_by_date$Date), format(last(recov$Date), format="%B %d %Y"))), icon="fa-check-circle",color="success")
 ```
 
 ### Total deaths
 ```{r}
 valueBox(value=sum(cases_by_region$deaths,na.rm=TRUE), 
-         caption="Total Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020",color="danger",icon="fa-heartbeat",href="### Total deaths")
+         caption=translate.sl("Total Number of deaths caused by COVID-19 reported in Madagascar since 20 March 2020"),color="danger",icon="fa-heartbeat",href="### Total deaths")
 ```
 
 
 ### Total tests performed: How many tests did Madagascar so far?
 ```{r}
-valueBox(value=format(last(test$Total.tests),big.mark = ","),caption=paste("Total Number of tests performed in Madagascar between 20-March-2020 and",format(last(test$Date),format= "%B %d %Y")),
+valueBox(value=format(last(test$Total.tests),big.mark = ","),caption=paste(translate.sl("Total Number of tests performed in Madagascar between 20-March-2020 and"), format(last(test$Date),format= "%B %d %Y")),
          icon="fa-flask",color=ifelse(last(test$Total.tests)/27692<5,"warning","info"))
 ```
 
 Row
 ------------------------
-### Notes and announcements
 
-**On July 2nd 2020, the press briefings failed to report the location (region) of a number of positive cases. It is unclear whether these were from patients in any of the affected regions or in "new regions"** 
+```{r notes, results='asis', verbatim=TRUE}
 
-**Age and sex of deceased individuals are not reported anymore either.**
+translate("notes")
 
-These omissions will affect the accuracy of some figures presented below
-
-
+```
 
 
 Row {data-width=650}
@@ -312,14 +330,13 @@ Row {data-width=650}
 
 ### **Daily Number of cases per region** 
 ```{r cases_movavg, warning=FALSE}
-modavg.curv<-ggplot(data=cases_by_date,aes(x=Date,y=mov.avg))+
+modavg.curv<-ggplot(data=ungroup(cases_by_date, region) ,aes(x=Date,y=mov.avg))+
   geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.6)+
   scale_x_date(date_breaks = "2 weeks") +
   geom_smooth(aes(x=Date,y=mov.avg,group=region,colour=region),size=0.7,method="gam")+
   labs(y="Daily number of cases")+
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))
 ggplotly(modavg.curv)
-
 
 
 ```
