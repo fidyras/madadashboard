@@ -323,7 +323,7 @@ Row {data-width=650}
 modavg.curv<-ggplot(data=cases_by_date, aes(x=Date,y=mov.avg))+
   geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.6)+
   scale_x_date(date_breaks = "2 weeks") +
-  geom_smooth(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
   labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
   theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
 ggplotly(modavg.curv)
