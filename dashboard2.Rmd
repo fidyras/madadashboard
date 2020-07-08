@@ -178,7 +178,7 @@ valueBox(value=format(sum(cases_by_date$cases),big.mark = ","),
 ### Daily cases
 
 ```{r}
-valueBox(value=format(last(ntl.cases$mov.avg),big.mark = ",",digits=3),
+valueBox(value=format(last(ntl.cases$mov.avg),big.mark = ",",digits=4),
          caption=paste(translate.sl("Daily new cases (7 days moving average)"), format(last(cases_by_date$Date), format="%B %d %Y")),
          icon="fa-chart-line", color="danger")
 ```
