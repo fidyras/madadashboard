@@ -7,8 +7,8 @@ output:
     vertical_layout: scroll
     theme: bootstrap
     navbar:
-      - { title: "<img style=\"width: 16px;\" src=\"www/us16.png\" />   English", href: "index.html"} 
-      - { title: "<img style=\"width: 16px;\" src=\"www/mada16.png\" />   Malagasy", href: "dashboard_MG.html"}
+      - { title: "<img style=\"width: 16px;\" src=\"www/us16.png\" />   English", href: "dashboard_EN.html"} 
+      - { title: "<img style=\"width: 16px;\" src=\"www/mada16.png\" />   Malagasy", href: "index.html"}
       - { title: "<img style=\"width: 16px;\" src=\"www/france16.png\" />   French", href: "dashboard_fr.html"}
 params:
   lang: "MDG"
@@ -138,8 +138,6 @@ date_updated <- format(last(cases$Date),format="%B %d %Y") # any inline stats yo
 `r format(f.tr("sidebar_part_4"))`
 
 `r paste(f.tr("sidebar_part_5"), date_updated, sep = " ")` 
-
-`r format(f.tr("sidebar_part_6"))`
 
 `r format(f.tr("sidebar_part_7"))`
 
