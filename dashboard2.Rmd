@@ -209,7 +209,7 @@ Row {data-width=650}
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
 bins <- pretty(cases_by_region$cases,n=12)
-pal <- colorBin("YlOrRd", domain = mada_regions$cases)
+pal <- colorBin("YlOrRd", domain = mada_regions$cases,bins=6)
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
       mada_regions$NAME, mada_regions$cases, mada_regions$deaths
@@ -277,7 +277,8 @@ ggplot(data=plot.IRD, aes(x=Date,y=Type.cum.sum,fill=Label))+
   scale_x_date(date_breaks = "2 weeks")+
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+
   labs(x=f.tr("time_series_a_xlab"), y=f.tr("time_series_a_ylab"))->IRD_curve
-ggplotly(IRD_curve)
+IRD_curve+theme(legend.position = "bottom")->IRD_curve
+ggplotly(IRD_curve,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
 ```
 
 
@@ -292,7 +293,7 @@ ggplot(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region))+
   scale_fill_manual(values=mycolors)+scale_x_date(date_breaks = "2 weeks")+
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+
   labs(x=f.tr("time_series_b_xlab"), y=f.tr("time_series_b_ylab"))->cumulative_cases
-ggplotly(cumulative_cases)
+ggplotly(cumulative_cases,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
 ```
 
 Row {data-width=650}
@@ -310,7 +311,7 @@ daily.cases<-ggplot(data=ntl.cases,aes(x=Date,y=mov.avg))+
   scale_color_manual(name= "", values = c("mov.avg" = "#E6AB02")) +
   theme(legend.position = "none", panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x=f.tr("time_series_c_xlab"), y=f.tr("time_series_c_ylab"))
-ggplotly(daily.cases)
+ggplotly(daily.cases,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
 ```
 
 
@@ -320,13 +321,13 @@ Row {data-width=650}
 ### `r format(f.tr("time_series_d_header"))`
 
 ```{r cases_movavg, warning=FALSE}
-modavg.curv<-ggplot(data=cases_by_date, aes(x=Date,y=mov.avg))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.6)+
+modavg.curv<-ggplot(data=cases_by_date, aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
   scale_x_date(date_breaks = "2 weeks") +
   geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
   labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
   theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-ggplotly(modavg.curv)
+ggplotly(modavg.curv)%>%config(displaylogo=FALSE)
 ```
 
 
