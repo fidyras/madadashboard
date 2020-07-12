@@ -391,7 +391,7 @@ ggplot( aes(x = Date, y = value,fill=name)) +
   scale_fill_viridis_d(name="Variable",labels=c(f.tr("tests_t_lab_cases"), f.tr("tests_t_lab_tests")))+
   labs(x=f.tr("tests_t_xlab"), y=f.tr("tests_t_ylab")) +
   theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1)) -> tests.ts
-ggplotly(tests.ts)
+ggplotly(tests.ts,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
 ```
 
 ### `r format(f.tr("daily_pos_header"))`
