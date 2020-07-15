@@ -39,6 +39,12 @@ library(glue)
 library(ggthemes)
 library(scales)
 library(RColorBrewer)
+require(EpiEstim)
+require(dplyr)
+require(RCurl)
+require(reshape2)
+require(purrr)
+require(lubridate)
 ```
 
 
@@ -105,7 +111,9 @@ ntl.cases<-ntl.cases[order(ntl.cases$Date,na.last=FALSE),]
 ntl.cases$cum.cases<-na.locf(ntl.cases$cum.cases)
 ntl.cases$cum.deaths<-na.locf(ntl.cases$cum.deaths)
 ntl.cases$Date<-as.Date(ntl.cases$Date)
+
 ```
+
 
 ``` {r translation}
 #Seting up language for rest of dashboard
@@ -468,4 +476,355 @@ ntl.cases%>%rename("deaths"=n.deaths,"moving.average"=d.mov.avg)%>%
   scale_color_manual(name = "", values = c("moving.average" = "#fdbf6f")) +
   theme(legend.position = "none", panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))->death_time
 ggplotly(death_time)
+```
+
+R estimate
+===================================
+### Estimating R effective for Madagascar
+
+```{r}
+ntl.cases%>%
+  select(Date,"cases"=cum.cases) %>%
+  mutate(Confirmed = cases) %>%
+  select(Date,Confirmed)%>%
+  mutate(epiweek = epiweek(Date))->covid_pt
+first.date <- head(covid_pt$Date,1)
+
+covid_pt %>%
+  mutate(
+    Confirmed_lag = lag(x = Confirmed,
+                        n = 1,
+                        order_by = Date),
+    Confirmed_var=Confirmed-Confirmed_lag,
+    Confirmed_sign=if_else(Confirmed_var>=0,"+","-")
+  ) %>%
+  subset(Date >  first.date) -> covid_pt
+
+covid_pt  %>%
+  select(
+    Date,Confirmed_var
+  )  %>%
+  dplyr::mutate(
+    t_start = dplyr::row_number() %>% as.numeric(),
+    t_end = t_start + 6
+  ) -> covid_mdg
+
+## set negative daily counts to zero
+covid_mdg$Confirmed_var[ covid_mdg$Confirmed_var < 0 ] <- 0
+
+## parametric estimate given 'known' SI (no CIs)
+res_parametric_si <-
+  estimate_R(
+    covid_mdg$Confirmed_var,
+    method ="parametric_si",
+    config = make_config(
+      list(
+        mean_si = 4.7,
+        std_si = 2.9
+      )
+    )
+  )
+
+r_mdg <- as.data.frame(res_parametric_si$R)
+
+
+### join by t-end
+left_join(
+  x = covid_mdg,
+  y = dplyr::select(
+    r_mdg,
+    c("t_end", "Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")
+  ),
+  by = c("t_start" = "t_end")
+) -> r_mdg
+
+
+r_mdg %>%
+  dplyr::rename(
+    reff = "Mean(R)",
+    r_low = "Quantile.0.025(R)",
+    r_high = "Quantile.0.975(R)"
+  ) -> r_mdg
+
+####estimating Re for Atsinanana region
+cases_by_date%>%
+  select(Date,"cases"=cum.sum) %>%
+  filter(region=="Atsinanana")%>%
+  mutate(Confirmed = cases) %>%
+  select(Date,Confirmed) -> covid_pt_tmm
+
+
+covid_pt_tmm<-covid_pt_tmm  %>%
+  #subset(Date >= '2020-03-05') %>%
+  mutate(epiweek = epiweek(Date))
+
+first.date <- head(covid_pt_tmm$Date,1)
+
+covid_pt_tmm %>%
+  mutate(
+    Confirmed_lag = lag(x = Confirmed,
+                        n = 1,
+                        order_by = Date),
+    Confirmed_var=Confirmed-Confirmed_lag,
+    Confirmed_sign=if_else(Confirmed_var>=0,"+","-")
+  ) %>%
+  subset(Date >  first.date) -> covid_pt_tmm
+
+covid_pt_tmm  %>%
+  select(
+    Date,Confirmed_var
+  )  %>%
+  dplyr::mutate(
+    t_start = dplyr::row_number() %>% as.numeric(),
+    t_end = t_start + 6
+  ) -> covid_tmm
+
+## set negative daily counts to zero
+covid_tmm$Confirmed_var[ covid_tmm$Confirmed_var < 0 ] <- 0
+
+## parametric estimate given 'known' SI (no CIs)
+res_parametric_si <-
+  estimate_R(
+    covid_tmm$Confirmed_var,
+    method ="parametric_si",
+    config = make_config(
+      list(
+        mean_si = 4.7,
+        std_si = 2.9
+      )
+    )
+  )
+
+
+r_tmm <- as.data.frame(res_parametric_si$R)
+
+
+### join by t-end
+left_join(
+  x = covid_tmm,
+  y = dplyr::select(
+    r_tmm,
+    c("t_end", "Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")
+  ),
+  by = c("t_start" = "t_end")
+) -> r_tmm
+
+
+r_tmm %>%
+  dplyr::rename(
+    reff = "Mean(R)",
+    r_low = "Quantile.0.025(R)",
+    r_high = "Quantile.0.975(R)"
+  ) -> r_tmm
+
+####estimating Re for Analamanga region
+cases_by_date%>%
+  select(Date,"cases"=cum.sum) %>%
+  filter(region=="Analamanga")%>%
+  mutate(Confirmed = cases) %>%
+  select(Date,Confirmed) -> covid_pt_tnr
+
+
+covid_pt_tnr<-covid_pt_tnr  %>%
+  #subset(Date >= '2020-03-05') %>%
+  mutate(epiweek = epiweek(Date))
+
+first.date <- head(covid_pt_tnr$Date,1)
+
+covid_pt_tnr %>%
+  mutate(
+    Confirmed_lag = lag(x = Confirmed,
+                        n = 1,
+                        order_by = Date),
+    Confirmed_var=Confirmed-Confirmed_lag,
+    Confirmed_sign=if_else(Confirmed_var>=0,"+","-")
+  ) %>%
+  subset(Date >  first.date) -> covid_pt_tnr
+
+covid_pt_tnr  %>%
+  select(
+    Date,Confirmed_var
+  )  %>%
+  dplyr::mutate(
+    t_start = dplyr::row_number() %>% as.numeric(),
+    t_end = t_start + 6
+  ) -> covid_tnr
+
+## set negative daily counts to zero
+covid_tnr$Confirmed_var[ covid_tnr$Confirmed_var < 0 ] <- 0
+
+## parametric estimate given 'known' SI (no CIs)
+res_parametric_si <-
+  estimate_R(
+    covid_tnr$Confirmed_var,
+    method ="parametric_si",
+    config = make_config(
+      list(
+        mean_si = 4.7,
+        std_si = 2.9
+      )
+    )
+  )
+
+
+r_tnr <- as.data.frame(res_parametric_si$R)
+
+
+### join by t-end
+left_join(
+  x = covid_tnr,
+  y = dplyr::select(
+    r_tnr,
+    c("t_end", "Mean(R)", "Quantile.0.025(R)", "Quantile.0.975(R)")
+  ),
+  by = c("t_start" = "t_end")
+) -> r_tnr
+
+
+r_tnr %>%
+  dplyr::rename(
+    reff = "Mean(R)",
+    r_low = "Quantile.0.025(R)",
+    r_high = "Quantile.0.975(R)"
+  ) -> r_tnr
+```
+
+The reproductive number Re (sometimes called Rt) of a disease is defined as the number of secondary cases that a single positive individual is expected to cause. In other words, it is the number of people who will get infected by one person on average. The higher the value of Re, the faster an epidemic will progress.
+\
+If the average Re in the population is greater than 1, the infection will spread exponentially. If Re is less than 1, the infection will spread only slowly, and it will eventually die out. The higher the value of Re, the faster an epidemic will progress. 
+\
+On `r date_updated`, the average of Re over the past 7 days is `r round(last(r_mdg$reff),2)` for Madagascar.
+
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+The estimates of the Reproductive number shown here is dependent upon the testing capacity and results provided by the Malagasy government Taskforce. It does not attempt to correct for testing volume.
+
+
+Row {data-width=650}
+-----------------------------------------------------------------------
+
+
+### Re estimate in Madagascar
+
+```{r}
+gauge(round(last(r_mdg$reff),2),min=0,max=5,symbol='',
+      label=paste("Reff on: ",format(last(r_mdg$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
+```
+
+### Trends
+
+```{r}
+diff_r<-last(r_mdg$reff)-nth(r_mdg$reff,length(r_mdg$reff)-7)
+txt<-ifelse(diff_r<0,"Decreasing","Increasing")
+valueBox(paste (txt,"[",round(diff_r,2),"]"), 
+         caption="Trend of Re compared to 1 week ago",
+         color=ifelse(diff_r<0,"success","danger"))
+```
+
+Row {data-width=650}
+-----------------------------------------------------------------------
+
+### Time varying reproduction number estimates
+
+```{r}
+r_mdg %>%
+  ggplot(aes(Date,reff)) +
+  #geom_line()+
+  geom_point()+
+  geom_smooth(method="gam")+
+  geom_hline( yintercept=1) +
+  #geom_ribbon(aes(Date, ymin = r_low, ymax = r_high),alpha=0.3,fill="#33a02c") +
+  scale_x_date(breaks='7 days') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme_bw()+
+  ylab("R effective") +
+  ggtitle("Effective Reproductive number of COVID19 estimates \n in Madagascar")->Re_mdg
+ggplotly(Re_mdg,dynamicTicks=TRUE)%>%
+  rangeslider()%>%
+  layout(hovermode="x")
+```
+
+Row {}
+-----------------------------------------------------------------------
+
+## Estimating R effective regionally
+
+
+```{r}
+gauge(round(last(r_tmm$reff),2),min=0,max=5,symbol='',
+      label=paste("Reff on: ",format(last(r_tmm$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
+```
+
+### Trends
+
+```{r}
+diff_r<-last(r_tmm$reff)-nth(r_tmm$reff,length(r_tmm$reff)-7)
+txt<-ifelse(diff_r<0,"Decreasing","Increasing")
+valueBox(paste (txt,"[",round(diff_r,2),"]"), 
+         caption="Trend of Re compared to 1 week ago",
+         color=ifelse(diff_r<0,"success","danger"))
+```
+
+Row {}
+-----------------------------------------------------------------------
+
+### Time varying reproduction number estimates
+
+```{r}
+r_tmm %>%
+  ggplot(aes(Date,reff)) +
+  geom_line()+
+  #geom_smooth(method="gam")+
+  geom_hline( yintercept=1) +
+  geom_ribbon(aes(Date, ymin = r_low, ymax = r_high),alpha=0.3,fill="#33a02c") +
+  scale_x_date(breaks='7 days') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme_bw()+
+  ylab("R effective") +
+  ggtitle("Effective Reproductive number of COVID19 estimates in Atsinanana region, Madagascar")->Re_tmm
+ggplotly(Re_tmm,dynamicTicks=TRUE)%>%
+  #rangeslider()%>%
+  layout(hovermode="x")
+```
+
+Row {data-width=650}
+-----------------------------------------------------------------------
+
+### Analamanga
+
+```{r}
+gauge(round(last(r_tnr$reff),2),min=0,max=5,symbol='',
+      label=paste("Reff on: ",format(last(r_tnr$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
+```
+
+### Trends
+
+```{r}
+diff_r<-last(r_tnr$reff)-nth(r_tnr$reff,length(r_tnr$reff)-7)
+txt<-ifelse(diff_r<0,"Decreasing","Increasing")
+valueBox(paste (txt,"[",round(diff_r,2),"]"), 
+         caption="Trend of Re compared to 1 week ago",
+         color=ifelse(diff_r<0,"success","danger"))
+```
+
+Row
+---------------------------------------
+
+### Time varying reproduction number estimates
+
+```{r}
+r_tnr %>%
+  ggplot(aes(Date,reff)) +
+  geom_line()+
+  #geom_point()+
+  #geom_smooth(method="gam")+
+  geom_hline( yintercept=1) +
+  geom_ribbon(aes(Date, ymin = r_low, ymax = r_high),alpha=0.3,fill="#33a02c") +
+  scale_x_date(breaks='7 days') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme_bw()+
+  ylab("R effective") +
+  ggtitle("Effective Reproductive number of COVID19 estimates \n in Atsinanana region, Madagascar")->Re_tnr
+ggplotly(Re_tnr)%>%
+  layout(hovermode="x")
 ```
