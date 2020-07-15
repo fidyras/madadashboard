@@ -730,29 +730,28 @@ Row {data-width=650}
 ```{r}
 r_mdg %>%
   ggplot(aes(Date,reff)) +
-  #geom_line()+
-  geom_point()+
-  geom_smooth(method="gam")+
+  geom_line()+
+  #geom_point()+
+  #geom_smooth(method="gam")+
   geom_hline( yintercept=1) +
-  #geom_ribbon(aes(Date, ymin = r_low, ymax = r_high),alpha=0.3,fill="#33a02c") +
+  geom_ribbon(aes(Date, ymin = r_low, ymax = r_high), alpha=0.3,fill="#33a02c") +
   scale_x_date(breaks='7 days') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme_bw()+
   ylab("R effective") +
-  ggtitle("Effective Reproductive number of COVID19 estimates \n in Madagascar")->Re_mdg
+  ggtitle("Effective Reproductive number of COVID19 estimates in Madagascar")->Re_mdg
 ggplotly(Re_mdg,dynamicTicks=TRUE)%>%
-  rangeslider()%>%
   layout(hovermode="x")
 ```
 
-Row {}
+Row {data-width=650}
 -----------------------------------------------------------------------
 
-## Estimating R effective regionally
+### Estimating R effective regionally
 
 
 ```{r}
 gauge(round(last(r_tmm$reff),2),min=0,max=5,symbol='',
-      label=paste("Reff on: ",format(last(r_tmm$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      label=paste("Reff in Atsinanana on: ",format(last(r_tmm$Date), format="%B %d %Y")),abbreviateDecimals = 2,
       sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
 ```
 
@@ -794,7 +793,7 @@ Row {data-width=650}
 
 ```{r}
 gauge(round(last(r_tnr$reff),2),min=0,max=5,symbol='',
-      label=paste("Reff on: ",format(last(r_tnr$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      label=paste("Reff of Analamanga on: ",format(last(r_tnr$Date), format="%B %d %Y")),abbreviateDecimals = 2,
       sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
 ```
 
@@ -824,7 +823,7 @@ r_tnr %>%
   scale_x_date(breaks='7 days') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme_bw()+
   ylab("R effective") +
-  ggtitle("Effective Reproductive number of COVID19 estimates \n in Atsinanana region, Madagascar")->Re_tnr
+  ggtitle("Effective Reproductive number of COVID19 estimates in Analamanga region, Madagascar")->Re_tnr
 ggplotly(Re_tnr)%>%
   layout(hovermode="x")
 ```
