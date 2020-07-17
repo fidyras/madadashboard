@@ -209,7 +209,7 @@ Row {data-width=650}
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
 bins <- pretty(cases_by_region$cases,n=12)
-pal <- colorBin("YlOrRd", domain = mada_regions$cases,bins=6)
+pal <- colorBin("Paired", domain = mada_regions$cases,bins=12)
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
       mada_regions$NAME, mada_regions$cases, mada_regions$deaths
@@ -327,7 +327,7 @@ modavg.curv<-ggplot(data=cases_by_date, aes(x=Date,y=mov.avg,color=region,fill=r
   geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
   labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
   theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-ggplotly(modavg.curv)%>%config(displaylogo=FALSE)
+ggplotly(modavg.curv,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
 ```
 
 
