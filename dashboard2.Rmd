@@ -217,7 +217,7 @@ Row {data-width=650}
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
 bins <- pretty(cases_by_region$cases,n=12)
-pal <- colorBin("YlOrRd", domain = mada_regions$cases,bins=6)
+pal <- colorBin("Paired",domain = mada_regions$cases)
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
       mada_regions$NAME, mada_regions$cases, mada_regions$deaths
@@ -693,7 +693,9 @@ The reproductive number Re (sometimes called Rt) of a disease is defined as the 
 \
 If the average Re in the population is greater than 1, the infection will spread exponentially. If Re is less than 1, the infection will spread only slowly, and it will eventually die out. The higher the value of Re, the faster an epidemic will progress. 
 \
+\
 On `r date_updated`, the average of Re over the past 7 days is `r round(last(r_mdg$reff),2)` for Madagascar.
+\
 
 Sidebar {.sidebar}
 -----------------------------------------------------------------------
@@ -708,7 +710,7 @@ Row {data-width=650}
 
 ```{r}
 gauge(round(last(r_mdg$reff),2),min=0,max=5,symbol='',
-      label=paste("Reff on: ",format(last(r_mdg$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      label=paste("National estimate of Rt \n on: ",format(last(r_mdg$Date), format="%B %d %Y")),abbreviateDecimals = 2,
       sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
 ```
 
@@ -722,16 +724,19 @@ valueBox(value= txt,
          color=ifelse(diff_r<1,"success","danger"))
 ```
 
-### Doubling time
-```{r}
 
-txt<-round(log(2)/log(1+last(r_mdg$reff)),1)
+### Doubling time
+
+```{r}
+txt<-round((log(2)*5)/(last(r_mdg$reff)-1),0)
 valueBox(paste(txt,"days"), 
          caption="Expected doubling time of cases",
          color=ifelse(last(r_tnr$reff)<1,"success","danger"))
 ```
+
+
 Row {data-width=650}
------------------------------------------------------------------------
+----------------------------------------------------
 
 ### Time varying reproduction number estimates
 
@@ -749,19 +754,23 @@ r_mdg %>%
   ggtitle("Effective Reproductive number of COVID19 estimates in Madagascar")->Re_mdg
 ggplotly(Re_mdg,dynamicTicks=TRUE)%>%
   layout(hovermode="x")
+
 ```
 
+----------------------------------------------------
+
 Row {data-width=650}
------------------------------------------------------------------------
+-------------------------------------------------
 
-### Estimating R effective regionally
-
+### Rt estimate
 
 ```{r}
 gauge(round(last(r_tmm$reff),2),min=0,max=5,symbol='',
-      label=paste("Reff in Atsinanana on: ",format(last(r_tmm$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      label=paste("Rt in Atsinanana \n on: ",format(last(r_tmm$Date), format="%B %d %Y")),abbreviateDecimals = 2,
       sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
+
 ```
+
 
 ### Trends
 
@@ -773,11 +782,20 @@ valueBox(txt,
          color=ifelse(diff_r<1,"success","danger"))
 ```
 
+### Doubling time
 
-Row {}
------------------------------------------------------------------------
+```{r}
+txt<-round((log(2)*5)/(last(r_tmm$reff)-1),0)
+valueBox(paste(txt,"days"), 
+         caption="Expected doubling time of cases",
+         color=ifelse(last(r_tnr$reff)<1,"success","danger"))
 
-### Time varying reproduction number estimates
+```
+
+Row {data-width=650}
+---------------------------------------------------
+
+### Time dependent Rt
 
 ```{r}
 r_tmm %>%
@@ -795,18 +813,19 @@ ggplotly(Re_tmm,dynamicTicks=TRUE)%>%
   layout(hovermode="x")
 ```
 
-Row {data-width=650}
------------------------------------------------------------------------
+Row {}
+----------------------------------------------------
 
-### Analamanga
+
+### Rt estimate
 
 ```{r}
 gauge(round(last(r_tnr$reff),2),min=0,max=5,symbol='',
-      label=paste("Reff of Analamanga on: ",format(last(r_tnr$Date), format="%B %d %Y")),abbreviateDecimals = 2,
+      label=paste("Rt of Analamanga \n on :",format(last(r_tnr$Date), format="%Y-%m-%d %Y")),abbreviateDecimals = 2,
       sectors=gaugeSectors(success=c(0,1),warning = c(1,2),danger=c(2,5)))
 ```
 
-### Trends
+### Trend
 
 ```{r}
 diff_r<-last(r_tnr$reff)
@@ -816,19 +835,20 @@ valueBox(txt,
          color=ifelse(diff_r<1,"success","danger"))
 ```
 
+### Doubling time
 
-### Doubling/halving time
 ```{r}
-
-txt<-round()
+txt<-round((log(2)*5)/(last(r_tnr$reff)-1),0)
 valueBox(paste(txt,"days"), 
          caption="Expected doubling time of cases",
          color=ifelse(last(r_tnr$reff)<1,"success","danger"))
-```
-Row
----------------------------------------
 
-### Time varying reproduction number estimates
+```
+
+Row {data-width=650}
+---------------------------------------------------
+
+### Time Varying reproductive rate in Analamanga
 
 ```{r}
 r_tnr %>%
@@ -838,10 +858,11 @@ r_tnr %>%
   #geom_smooth(method="gam")+
   geom_hline( yintercept=1) +
   geom_ribbon(aes(Date, ymin = r_low, ymax = r_high),alpha=0.3,fill="#33a02c") +
-  scale_x_date(breaks='7 days') +
+  scale_x_date(breaks='14 days') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme_bw()+
   ylab("R effective") +
   ggtitle("Effective Reproductive number of COVID19 estimates in Analamanga region, Madagascar")->Re_tnr
 ggplotly(Re_tnr)%>%
   layout(hovermode="x")
 ```
+
