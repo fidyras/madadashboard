@@ -199,7 +199,7 @@ Row
 `r format(f.tr("notes_announs_part_3"))`
 
 
-Row {data-width=650}
+Row {data-width=650,data-height=900}
 -----------------------------------------------------------------------
 
 ### `r format(f.tr("map_of_cases_header"))`
@@ -233,7 +233,7 @@ map <-leaflet()  %>%
                 style = list("font-weight" = "normal", padding = "3px 8px"),
                 textsize = "15px",
                 direction = "auto")) %>%
-  addLegend("bottomright", pal = pal, values = bins, title = f.tr("map_of_cases_legend_caption"))
+  addLegend("topleft", pal = pal, values = bins, title = f.tr("map_of_cases_legend_caption"))
 map %>%addProviderTiles(providers$Esri.WorldStreetMap)
 ```
 
