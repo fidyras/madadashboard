@@ -208,8 +208,8 @@ Row {data-width=650}
 
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
-bins <- pretty(cases_by_region$cases,n=12)
-pal <- colorBin("Paired", domain = mada_regions$cases,bins=12)
+bins <- c(0,100,300,500,1000,3000,5000,10000)
+pal <- colorBin("Paired", domain = mada_regions$cases,bins=bins)
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
       mada_regions$NAME, mada_regions$cases, mada_regions$deaths
