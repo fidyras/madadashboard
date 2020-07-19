@@ -463,7 +463,7 @@ ntl.cases%>%rename("deaths"=n.deaths,"moving.average"=d.mov.avg)%>%
   geom_line(aes(y=moving.average,color="moving.average"),size=1)+
   labs(x=f.tr("mortality_t_xlab"), y=f.tr("mortality_t_ylab")) +
   scale_x_date(date_breaks = "2 weeks") +
-  scale_y_continuous(limits=c(0,5))+
+  scale_y_continuous(limits=c(0,20))+
   scale_fill_manual(name = "", values = c("deaths" = "#1f78b4"),labels="number of deaths") +
   scale_color_manual(name = "", values = c("moving.average" = "#fdbf6f")) +
   theme(legend.position = "none", panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))->death_time
