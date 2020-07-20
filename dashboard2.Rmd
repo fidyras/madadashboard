@@ -208,7 +208,7 @@ Row {data-width=650,data-height=900}
 
 ```{r}
 mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
-bins <- c(0,100,300,500,1000,3000,5000,10000)
+bins <- c(0,50,100,500,1000,2000,4000,8000,16000)
 pal <- colorBin("Paired", domain = mada_regions$cases,bins=bins)
 labels <- sprintf(
       "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
@@ -315,21 +315,155 @@ ggplotly(daily.cases,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displ
 ```
 
 
-Row {data-width=650}
+Row {.tabset .tabset-fade}
 ----------------------------------
 
 ### `r format(f.tr("time_series_d_header"))`
 
-```{r cases_movavg, warning=FALSE}
+```{r, warning=FALSE}
 modavg.curv<-ggplot(data=cases_by_date, aes(x=Date,y=mov.avg,color=region,fill=region))+
   geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
   scale_x_date(date_breaks = "2 weeks") +
   geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
   labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
   theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-ggplotly(modavg.curv,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
+ggplotly(modavg.curv)%>%config(displaylogo=FALSE)
 ```
 
+### Analamanga
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Analamanga")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alg
+ggplotly(modavg_alg)%>%config(displaylogo=FALSE)
+```
+
+### Atsinanana
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Atsinanana")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_ats
+ggplotly(modavg_ats)%>%config(displaylogo=FALSE)
+```
+
+### Alaotra-Mangoro
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Alaotra-Mangoro")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alM
+ggplotly(modavg_alM)%>%config(displaylogo=FALSE)
+```
+
+
+### Analanjirofo
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Analanjirofo")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alj
+ggplotly(modavg_alj)%>%config(displaylogo=FALSE)
+```
+
+### Alaotra-Mangoro
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Alaotra-Mangoro")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alM
+ggplotly(modavg_alM)%>%config(displaylogo=FALSE)
+```
+
+
+### Diana
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Diana")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_dia
+ggplotly(modavg_dia)%>%config(displaylogo=FALSE)
+```
+
+### Anosy
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Anosy")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_anosy
+ggplotly(modavg_anosy)%>%config(displaylogo=FALSE)
+```
+
+### Vakinankaratra
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Vakinankaratra")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_vak
+ggplotly(modavg_vak)%>%config(displaylogo=FALSE)
+```
+
+### Atsimo-Andrefana
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Atsimo-Andrefana")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_tol
+ggplotly(modavg_tol)%>%config(displaylogo=FALSE)
+```
+
+### Boeny
+
+```{r, warning=FALSE}
+cases_by_date%>%filter(region=="Boeny")%>%
+ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
+  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
+  scale_x_date(date_breaks = "2 weeks") +
+  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
+  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
+  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_mja
+ggplotly(modavg_mja)%>%config(displaylogo=FALSE)
+```
+
+Row {data-width=650}
+-------------------------------------------
 
 ### `r format(f.tr("metrics_header"))`
 
