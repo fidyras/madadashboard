@@ -47,7 +47,7 @@ require(reshape2)
 require(purrr)
 require(lubridate)
 library(crosstalk)
-
+library(jsonlite)
 ```
 
 
@@ -196,6 +196,7 @@ f.tr <- function(ref) {
 
 Sidebar {.sidebar}
 -----------------------------------------------------------------------
+\
 
 ```{r sidebar, results='asis', verbatim=TRUE}
 date_updated <- format(last(cases$Date), format = "%B %d %Y") # any inline stats you need ahead of time!
@@ -456,8 +457,6 @@ map %>% addProviderTiles(providers$Esri.WorldStreetMap)
 Row {data-width=650}
 -----------------------------------------------------------------------
 
-### `r f.tr("time_series_d_header")`
-
 ```{r cases_movavg, warning=FALSE}
 
 # This code uses the library crosstalk to link the graphs
@@ -499,7 +498,7 @@ sd %>%
     text = map(paste("<b>", region, "</b><br>",
                      f.tr("time_series_d_xlab"), ":", Date, "<br>",
                      f.tr("time_series_d_ylab"), ":", cases, "<br>",
-                     "Moving avg:", round(mov.avg, 2), "<br>"), HTML))
+                     f.tr("mov_average"), ":", round(mov.avg, 2), "<br>"), HTML))
   ) +
   geom_col(
     aes(x = Date, y = cases, fill = region),
@@ -516,6 +515,12 @@ sd %>%
   theme(panel.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) -> modavg.curv
 
+```
+
+
+### `r format(f.tr("time_series_b_header"))` & `r format(f.tr("time_series_c_header"))` (Option1)
+
+```{r option 1}
 bscols(
   filter_select(
       id = "region",
@@ -542,137 +547,33 @@ bscols(
 )
 ```
 
-### Analamanga
 
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Analamanga")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alg
-ggplotly(modavg_alg)%>%config(displaylogo=FALSE)
-```
+Row {data-height=600}
+-----------------------------------------------------------------------
 
-### Atsinanana
+### `r format(f.tr("time_series_b_header"))` (Option2)
 
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Atsinanana")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_ats
-ggplotly(modavg_ats)%>%config(displaylogo=FALSE)
-```
-
-### Alaotra-Mangoro
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Alaotra-Mangoro")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alM
-ggplotly(modavg_alM)%>%config(displaylogo=FALSE)
+```{r}
+bscols(
+  ggplotly(cumulative_cases, tooltip = c("text")) %>%
+    layout(yaxis = list(autorange = TRUE)) %>%
+    highlight(selectize = TRUE) %>%
+    config(displaylogo = FALSE)
+)
 ```
 
 
-### Analanjirofo
+### `r format(f.tr("time_series_d_header"))` <br> (Option2)
 
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Analanjirofo")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alj
-ggplotly(modavg_alj)%>%config(displaylogo=FALSE)
+```{r}
+bscols(
+  ggplotly(modavg.curv, tooltip = "text") %>% 
+    layout(yaxis = list(autorange = TRUE)) %>%
+    highlight(selectize = TRUE) %>% 
+    config(displaylogo = FALSE)
+)
 ```
 
-### Alaotra-Mangoro
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Alaotra-Mangoro")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alM
-ggplotly(modavg_alM)%>%config(displaylogo=FALSE)
-```
-
-
-### Diana
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Diana")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_dia
-ggplotly(modavg_dia)%>%config(displaylogo=FALSE)
-```
-
-### Anosy
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Anosy")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_anosy
-ggplotly(modavg_anosy)%>%config(displaylogo=FALSE)
-```
-
-### Vakinankaratra
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Vakinankaratra")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_vak
-ggplotly(modavg_vak)%>%config(displaylogo=FALSE)
-```
-
-### Atsimo-Andrefana
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Atsimo-Andrefana")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_tol
-ggplotly(modavg_tol)%>%config(displaylogo=FALSE)
-```
-
-### Boeny
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Boeny")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_mja
-ggplotly(modavg_mja)%>%config(displaylogo=FALSE)
-```
 
 Row {data-width=650}
 ----------------------------------
@@ -794,7 +695,7 @@ ntl.cases %>% select(c(Date, "positivity" = positivity, "Moving.average" =
   ggplot(aes(x = Date, 
              text =  map(paste(f.tr("daily_pos_xlab"), Date, "<br>",
                                f.tr("daily_pos_ylab"), ":", round(positivity, 2), "<br>",
-                               "Moving average", ":", round(Moving.average, 2), "<br>"), HTML))) +
+                               f.tr("mov_average"), ":", round(Moving.average, 2), "<br>"), HTML))) +
   geom_col(aes(y = positivity, fill = "positivity"),
            size = 0.5,
            alpha = 0.7) +
@@ -863,6 +764,10 @@ Row {data-width=650}
 ### `r f.tr("age_sex_header")`
 
 ```{r}
+
+sex_labs <- c(f.tr("age_sex_male"), f.tr("age_sex_female"))
+names(sex_labs) <- c("M", "F")
+
 deaths %>% filter(!is.na(Sex)) %>%
   ggplot() +
   geom_histogram(aes(x = Age, fill = Sex),
@@ -871,7 +776,7 @@ deaths %>% filter(!is.na(Sex)) %>%
   labs(x = f.tr("age_sex_xlab"), y = f.tr("age_sex_ylab")) +
   scale_fill_manual(values = c("#ff6c6c", "#00468b"), guide = "none") +
   theme_bw() + 
-  facet_grid( ~ Sex) + 
+  facet_grid( ~ Sex, labeller = labeller(Sex = sex_labs)) + 
   scale_y_continuous(limits = c(0, 5)) +
   theme(legend.position = 'none') -> death_hist
 
@@ -891,7 +796,7 @@ ntl.cases %>% rename("deaths" = n.deaths, "moving.average" = d.mov.avg) %>%
   ggplot(aes(x = Date, 
              text =  map(paste(f.tr("mortality_t_xlab"), Date, "<br>",
                                f.tr("mortality_t_ylab"), ":", deaths, "<br>",
-                               "Moving average", ":", round(moving.average, 2), "<br>"), HTML))) +
+                               f.tr("mov_average"), ":", round(moving.average, 2), "<br>"), HTML))) +
   geom_col(aes(y = deaths, fill = "deaths")) +
   geom_line(aes(y = moving.average, color = "moving.average"), size = 1) +
   labs(x = f.tr("mortality_t_xlab"),
@@ -1174,4 +1079,24 @@ Row {data-height=400}
 * Forecasts of R~t~ at low/zero case counts have wide credible intervals and low confidence.
 
 * There are a number of limitations and uncertainties in these methods, many of which are reviewed [here](https://www.medrxiv.org/content/10.1101/2020.06.18.20134858v2?rss=1). 
+
+```{r comparison}
+# starting code for comparing Mada to other countries
+# following instructions from here:
+# https://stackoverflow.com/questions/50161492/how-do-i-scrape-data-from-an-arcgis-online-map
+# pull in Africa cdc data
+afr_cdc <- jsonlite::fromJSON("https://services8.arcgis.com/vWozsma9VzGndzx7/arcgis/rest/services/NEW_Dashboard/FeatureServer/0/query?where=0%3D0&outFields=%2A&f=json")
+afr_cdc_df <- tibble::as_tibble(afr_cdc$features$attributes)
+
+# add in Mada data and compare
+
+# ggplot(data = filter(afr_cdc_df, !is.na(Tests)), 
+#        aes(x = reorder(Country, Tests/`2020_Population`*1e5), 
+#            y = Tests/`2020_Population`*1e5)) +
+#   geom_col() +
+#   labs(x = "", y = "Tests per 100k persons") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+
+```
 
