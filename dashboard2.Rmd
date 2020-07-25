@@ -3,9 +3,10 @@ title: "COVID-19 | Madagascar"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
-    social: [ "twitter", "facebook", "menu" ]
+    social: [ "twitter", "facebook"]
     vertical_layout: scroll
     theme: bootstrap
+    source_code: https://github.com/fidyras/madadashboard
     navbar:
       - { title: "<img style=\"width: 16px;\" src=\"www/us16.png\" />   English", href: "dashboard_EN.html"} 
       - { title: "<img style=\"width: 16px;\" src=\"www/mada16.png\" />   Malagasy", href: "index.html"}
@@ -39,109 +40,169 @@ library(glue)
 library(ggthemes)
 library(scales)
 library(RColorBrewer)
+require(EpiEstim)
+require(dplyr)
+require(RCurl)
+require(reshape2)
+require(purrr)
+require(lubridate)
+library(crosstalk)
+library(jsonlite)
 ```
 
 
 ```{r}
 # pull data from google sheets & clean
 gs4_deauth()
-data   <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 2)
-test   <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 3)
-events <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 5)
-text   <- read_sheet("https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0", sheet = 6)
+data   <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 2
+  )
+test   <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 3
+  )
+events <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 5
+  )
+text   <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 6
+  )
+reg_cols <- 
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 4
+  )
 # shapefiles
 mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
 # Cases by region
-data$region<-mdg2$NAME[amatch(data$Location4,mdg2$NAME,maxDist=6)]
-data$Date<-as.Date(data$Date)
-data$region[is.na(data$region)]="unspecified"
+data$region <- mdg2$NAME[amatch(data$Location4, mdg2$NAME, maxDist = 6)]
+data$Date <- as.Date(data$Date)
+data$region[is.na(data$region)] = "unspecified"
 data %>%
   group_by(region) %>%
-  summarize(cases = sum(Type=="N"), deaths = sum(Type == "D")) -> cases_by_region
-deaths<-filter(data,Type=="D")
-cases<-filter(data,Type=="N")
-cases_by_date <- as.data.frame(xtabs( ~ Date+region , cases))
-cases_by_date$Date<-as.Date(cases_by_date$Date)
-cases_by_date%>%rename(cases=Freq)%>%
-  group_by(region)%>%
-  mutate(cum.sum=cumsum(cases))%>% #compute cumulative number of cases per region
-  mutate(mov.avg=rollmeanr(cases,7,fill="extend"))->cases_by_date #compute 7 day moving average per region
-deaths$Age<-as.numeric(deaths$Age)
-deaths_by_date<-as.data.frame(xtabs( ~ Date+region , deaths))
-deaths_by_date$Date<-as.Date(deaths_by_date$Date)
-deaths_by_date%>%
-  rename(deaths=Freq)%>%
-  group_by(region)%>%
-  mutate(deaths.cum.sum=cumsum(deaths))->deaths_by_date
-#IRD for infected (new cases), Recovered (R) and Removed (D)
-IRD<-as.data.frame(xtabs( ~ data$Date+data$Type))
-IRD%>%rename("Date"=1,"Type"=2,"n"=3)%>%filter(Type!="S")->IRD
-IRD$Date<-as.Date(IRD$Date)
-IRD%>%
-  arrange(Date)%>%
-  dplyr::group_by(Type)%>%
-  mutate(Type.cum.sum=cumsum(n))->IRD
-##testing
-test %>%select("Date"=Date,"Cum.cases"=Cum.cases,"New.cases"=new.cases, "Total.tests"=Global.total.test)%>%arrange(Date)->test
-Diff.previous<-data.frame("Date"=test$Date[c(2:length(test$Total.tests))],
-                          "tests.diff"=diff(test$Total.tests, lag = 1,na.rm=T),
-                          "time.diff"=as.integer(diff.Date(test$Date)))%>%
-  filter(!is.na(tests.diff)&time.diff==1)#table of daily test (when  there is exactly 1 day between two available "numbers of tests")
-data%>%
-  group_by(Date)%>%
-  summarise(n.cases=sum(Type=="N"),n.deaths=sum(Type=="D"))%>%
-  arrange(Date)%>%
-  mutate(cum.cases=cumsum(n.cases),mov.avg=rollmeanr(n.cases,7,fill="extend"),
-         cum.deaths=cumsum(n.deaths),d.mov.avg=rollmeanr(n.deaths,7,fill="extend"))%>%
+  summarize(cases = sum(Type == "N"), deaths = sum(Type == "D")) -> cases_by_region
+deaths <- filter(data, Type == "D")
+cases <- filter(data, Type == "N")
+cases_by_date <- as.data.frame(xtabs(~ Date + region , cases))
+cases_by_date$Date <- as.Date(cases_by_date$Date)
+cases_by_date %>% rename(cases = Freq) %>%
+  group_by(region) %>%
+  mutate(cum.sum = cumsum(cases)) %>% #compute cumulative number of cases per region
+  mutate(mov.avg = rollmeanr(cases, 7, fill = "extend")) -> cases_by_date #compute 7 day moving average per region
+deaths$Age <- as.numeric(deaths$Age)
+deaths_by_date <- as.data.frame(xtabs(~ Date + region , deaths))
+deaths_by_date$Date <- as.Date(deaths_by_date$Date)
+deaths_by_date %>%
+  rename(deaths = Freq) %>%
+  group_by(region) %>%
+  mutate(deaths.cum.sum = cumsum(deaths)) -> deaths_by_date
+# IRD for infected (new cases), Recovered (R) and Removed (D)
+IRD <- as.data.frame(xtabs(~ data$Date + data$Type))
+IRD %>% rename("Date" = 1,
+               "Type" = 2,
+               "n" = 3) %>% filter(Type != "S") -> IRD
+IRD$Date <- as.Date(IRD$Date)
+IRD %>%
+  arrange(Date) %>%
+  dplyr::group_by(Type) %>%
+  mutate(Type.cum.sum = cumsum(n)) -> IRD
+# testing
+test %>% select(
+  "Date" = Date,
+  "Cum.cases" = Cum.cases,
+  "New.cases" = new.cases,
+  "Total.tests" = Global.total.test
+) %>% arrange(Date) -> test
+Diff.previous <-
+  data.frame(
+    "Date" = test$Date[c(2:length(test$Total.tests))],
+    "tests.diff" = diff(test$Total.tests, lag = 1, na.rm =
+                          T),
+    "time.diff" = as.integer(diff.Date(test$Date))
+  ) %>%
+  filter(!is.na(tests.diff) &
+           time.diff == 1)#table of daily test (when  there is exactly 1 day between two available "numbers of tests")
+data %>%
+  group_by(Date) %>%
+  summarise(n.cases = sum(Type == "N"),
+            n.deaths = sum(Type == "D")) %>%
+  arrange(Date) %>%
+  mutate(
+    cum.cases = cumsum(n.cases),
+    mov.avg = rollmeanr(n.cases, 7, fill = "extend"),
+    cum.deaths = cumsum(n.deaths),
+    d.mov.avg = rollmeanr(n.deaths, 7, fill = "extend")
+  ) %>%
   right_join(mutate(test, Date = ymd(Date))) %>%
   left_join(mutate(Diff.previous, Date = ymd(Date))) %>%
-  arrange(Date)%>%
-  mutate(tests.mov.avg=rollmeanr(tests.diff,5,fill="extend"))%>%
-  mutate(positivity=(n.cases/tests.diff)*100)%>%
-  mutate(positivity.mov.avg=rollmeanr(positivity,5,fill="extend"))%>%
-  select(Date, n.cases, cum.cases, mov.avg, n.deaths, cum.deaths, d.mov.avg, n.tests=tests.diff, cum.tests=Total.tests,
-         tests.mov.avg,positivity, positivity.mov.avg)-> ntl.cases
-ntl.cases<-ntl.cases[order(ntl.cases$Date,na.last=FALSE),]
-ntl.cases$cum.cases<-na.locf(ntl.cases$cum.cases)
-ntl.cases$cum.deaths<-na.locf(ntl.cases$cum.deaths)
-ntl.cases$Date<-as.Date(ntl.cases$Date)
+  arrange(Date) %>%
+  mutate(tests.mov.avg = rollmeanr(tests.diff, 5, fill = "extend")) %>%
+  mutate(positivity = (n.cases / tests.diff) * 100) %>%
+  mutate(positivity.mov.avg = rollmeanr(positivity, 5, fill = "extend")) %>%
+  select(
+    Date,
+    n.cases,
+    cum.cases,
+    mov.avg,
+    n.deaths,
+    cum.deaths,
+    d.mov.avg,
+    n.tests = tests.diff,
+    cum.tests = Total.tests,
+    tests.mov.avg,
+    positivity,
+    positivity.mov.avg
+  ) -> ntl.cases
+ntl.cases <- ntl.cases[order(ntl.cases$Date, na.last = FALSE), ]
+ntl.cases$cum.cases <- na.locf(ntl.cases$cum.cases)
+ntl.cases$cum.deaths <- na.locf(ntl.cases$cum.deaths)
+ntl.cases$Date <- as.Date(ntl.cases$Date)
 ```
 
+
 ``` {r translation}
-#Seting up language for rest of dashboard
-#Selecting only the column with the text corresponding to the selected language
+# Seting up language for rest of dashboard
+# Selecting only the column with the text corresponding to the selected language
 c.lang <- params$lang
-text <- text %>% select("ref", c.lang)
-#Writing a helper function to pull the language specified in params above
-f.tr <- function(ref){
+text <- text %>% select("ref", all_of(c.lang))
+# Writing a helper function to pull the language specified in params above
+f.tr <- function(ref) {
   txt <- as.character(text[text$ref == ref, 2])
   return(txt)
 }
 ```
 
-`r format(f.tr("tab_title"))`
+`r f.tr("tab_title")`
 ========================================================================
 
 Sidebar {.sidebar}
 -----------------------------------------------------------------------
+\
 
 ```{r sidebar, results='asis', verbatim=TRUE}
-date_updated <- format(last(cases$Date),format="%B %d %Y") # any inline stats you need ahead of time!
+date_updated <- format(last(cases$Date), format = "%B %d %Y") # any inline stats you need ahead of time!
 ```
 
-`r format(f.tr("sidebar_part_1"))`
+`r f.tr("sidebar_part_1")`
 
-`r format(f.tr("sidebar_part_2"))`
+`r f.tr("sidebar_part_2")`
 
-`r format(f.tr("sidebar_part_3"))`
+`r f.tr("sidebar_part_3")`
 
-`r format(f.tr("sidebar_part_4"))`
+`r f.tr("sidebar_part_4")`
 
 `r paste(f.tr("sidebar_part_5"), date_updated, sep = " ")` 
 
-`r format(f.tr("sidebar_part_7"))`
+`r f.tr("sidebar_part_7")`
 
-`r format(f.tr("sidebar_part_8"))`
+`r f.tr("sidebar_part_8")`
 
 Row 
 -----------------------------------------------------------------------
@@ -149,333 +210,328 @@ Row
 ### Total cases
 
 ```{r}
-valueBox(value=format(sum(cases_by_date$cases),big.mark = ","),
-         caption=paste(f.tr("total_cases_caption"), 
-                            format(last(cases_by_date$Date), format="%B %d %Y")),
-         icon="fa-ambulance",color="info")
+valueBox(
+  value = format(sum(cases_by_date$cases), big.mark = ","),
+  caption = paste(f.tr("total_cases_caption"),
+                  format(last(cases_by_date$Date), format = "%B %d %Y")),
+  icon = "fa-ambulance",
+  color = "info"
+)
 ```
 
 ### Daily cases
 
 ```{r}
-valueBox(value=format(last(ntl.cases$mov.avg),big.mark = ",",digits=5),
-         caption=paste(f.tr("daily_new_cases_caption")),
-         icon="fa-chart-line", color="danger")
+valueBox(
+  value = format(
+    last(ntl.cases$mov.avg),
+    big.mark = ",",
+    digits = 5
+  ),
+  caption = paste(f.tr("daily_new_cases_caption")),
+  icon = "fa-chart-line",
+  color = "danger"
+)
 ```
 
 ### Recovered cases
 ```{r}
-IRD%>%filter(Type=="R")->recov
-valueBox(value=format(last(recov$Type.cum.sum),big.mark = ","),
-         caption=paste(f.tr("total_recovered_caption"), format(last(cases_by_date$Date), format(last(recov$Date), format="%B %d %Y"))),
-         icon="fa-check-circle", color="success")
+IRD %>% filter(Type == "R") -> recov
+valueBox(
+  value = format(last(recov$Type.cum.sum), big.mark = ","),
+  caption = paste(f.tr("total_recovered_caption"), format(
+    last(cases_by_date$Date), format(last(recov$Date), format = "%B %d %Y")
+  )),
+  icon = "fa-check-circle",
+  color = "success"
+)
 ```
 
 ### Total deaths
 ```{r}
-valueBox(value=sum(cases_by_region$deaths,na.rm=TRUE),
-         caption=paste(f.tr("total_deaths_caption_a"), format(last(cases_by_date$Date), format(last(recov$Date), format="%B %d %Y"))),
-         color="danger", icon="fa-heartbeat", href="### Total deaths")
+valueBox(
+  value = sum(cases_by_region$deaths, na.rm = TRUE),
+  caption = paste(f.tr("total_deaths_caption_a"), format(
+    last(cases_by_date$Date), format(last(recov$Date), format = "%B %d %Y")
+  )),
+  color = "danger",
+  icon = "fa-heartbeat",
+  href = "### Total deaths"
+)
 ```
 
 
 ### Total tests performed: How many tests did Madagascar so far?
 ```{r}
-valueBox(value=format(last(test$Total.tests),big.mark = ","),
-         caption=paste(f.tr("total_tests_caption_a"), format(last(test$Date),format= "%B %d %Y")),
-         icon="fa-flask", color=ifelse(last(test$Total.tests)/27692 < 5,"warning","info")) #hard-coded number?
+valueBox(
+  value = format(last(test$Total.tests), big.mark = ","),
+  caption = paste(
+    f.tr("total_tests_caption_a"),
+    format(last(test$Date), format = "%B %d %Y")
+  ),
+  icon = "fa-flask",
+  color = ifelse(last(test$Total.tests) / 27692 < 5, "warning", "info")
+) # hard-coded number?
 ```
 
 
 Row
 ------------------------
 
-### `r format(f.tr("notes_announs_header"))`
+### `r f.tr("notes_announs_header")`
 
-`r format(f.tr("notes_announs_part_1"))`
+`r f.tr("notes_announs_part_1")`
 
-`r format(f.tr("notes_announs_part_2"))`
+`r f.tr("notes_announs_part_2")`
 
-`r format(f.tr("notes_announs_part_3"))`
-
-
-Row {data-width=650,data-height=900}
------------------------------------------------------------------------
-
-### `r format(f.tr("map_of_cases_header"))`
-
-`r format(f.tr("map_of_cases_note"))`
-
-```{r}
-mada_regions <- left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
-bins <- c(0,50,100,200,500,1000,2000,4000,8000,16000)
-pal <- colorBin("RdYlBu", domain = mada_regions$cases,bins=bins,reverse=TRUE)
-labels <- sprintf(
-      "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
-      mada_regions$NAME, mada_regions$cases, mada_regions$deaths
-    ) %>% lapply(htmltools::HTML)
-    
-map <-leaflet()  %>%
-  addTiles()%>%
-  addPolygons(data = mada_regions,
-              color = "black", weight = 0.001, smoothFactor = 0.1,
-              fillColor = ~pal(cases),
-              fillOpacity = 0.6,
-              dashArray = NULL,
-              label = labels,
-              highlightOptions = highlightOptions(
-                    weight = 3,
-                    color = "black",
-                    dashArray = NULL,
-                    fillOpacity = 0.75,
-                    bringToFront = TRUE),
-              labelOptions = labelOptions(
-                style = list("font-weight" = "normal", padding = "3px 8px"),
-                textsize = "15px",
-                direction = "auto")) %>%
-  addLegend("topleft", pal = pal, values = bins, title = f.tr("map_of_cases_legend_caption"))
-map %>%addProviderTiles(providers$Esri.WorldStreetMap)
-```
-
-### `r format(f.tr("COVID_in_mada_header"))`
-
-`r format(f.tr("COVID_in_mada_part_1"))`
-
-`r format(f.tr("COVID_in_mada_part_2"))`
-
-`r format(f.tr("COVID_in_mada_part_3"))`
-
-`r format(f.tr("COVID_in_mada_part_4"))`
-
-`r format(f.tr("COVID_in_mada_part_5"))`
-
-`r paste0(f.tr("COVID_in_mada_part_6"), "**", round(last(na.trim(ntl.cases$tests.mov.avg)), 2), "**")`
-
-`r format(f.tr("COVID_in_mada_part_7A"))` **`r format(last(cases_by_date$Date),format="%B %d %Y")`** `r format(f.tr("COVID_in_mada_part_7B"))` **`r format(sum(cases_by_date$cases),big.mark = ",")`** `r format(f.tr("COVID_in_mada_part_7C"))` **`r n_distinct(data$Location4,na.rm=TRUE)`** `r format(f.tr("COVID_in_mada_part_7D"))` **`r length(deaths$Id)`** `r format(f.tr("COVID_in_mada_part_7E"))`
-
-Row {data-width=650}
------------------------------------------------------------------------
-
-
-### `r format(f.tr("time_series_a_header"))`
-
-```{r}
-IRD_curve_labels <- c(f.tr("time_series_a_label_cases"), f.tr("time_series_a_label_recovered"), f.tr("time_series_a_label_deaths"))
-IRD_curve_breaks <- c(f.tr("time_series_a_break_cases"), f.tr("time_series_a_break_recovered"), f.tr("time_series_a_break_deaths"))
-plot.IRD <- IRD %>% 
-  mutate(Label = case_when(
-           Type == "N" ~ f.tr("time_series_a_label_cases"),
-           Type == "R" ~ f.tr("time_series_a_label_recovered"),
-           Type == "D" ~ f.tr("time_series_a_label_deaths")
-         ))
-plot.IRD$Label <- factor(plot.IRD$Label, levels = c(f.tr("time_series_a_label_deaths"), 
-                                                    f.tr("time_series_a_label_cases"), 
-                                                    f.tr("time_series_a_label_recovered")))
-ggplot(data=plot.IRD, aes(x=Date,y=Type.cum.sum,fill=Label))+
-  geom_area(data=plot.IRD, aes(x=Date,y=Type.cum.sum,fill=Label),alpha=0.7,size=2,position="dodge")+
-  scale_fill_discrete(labels=IRD_curve_labels, breaks=IRD_curve_breaks)+
-  scale_x_date(date_breaks = "2 weeks")+
-  theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+
-  labs(x=f.tr("time_series_a_xlab"), y=f.tr("time_series_a_ylab"))->IRD_curve
-IRD_curve+theme(legend.position = "bottom")->IRD_curve
-ggplotly(IRD_curve,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
-```
-
-
-### `r format(f.tr("time_series_b_header"))`
-
-
-```{r}
-colourCount =length(unique(cases_by_date$region))
-mycolors <- colorRampPalette(brewer.pal(8, "Paired"))(colourCount)
-ggplot(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region))+
-  geom_area(data=cases_by_date,aes(x=Date,y=cum.sum,fill=region),size=0.75)+
-  scale_fill_manual(values=mycolors)+scale_x_date(date_breaks = "2 weeks")+
-  theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))+
-  labs(x=f.tr("time_series_b_xlab"), y=f.tr("time_series_b_ylab"))->cumulative_cases
-ggplotly(cumulative_cases,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
-```
+`r f.tr("notes_announs_part_3")`
 
 Row {data-width=650}
 -------------------------------
 
-### `r format(f.tr("time_series_c_header"))`
+### `r f.tr("time_series_c_header")`
 
 ```{r, warning=FALSE}
-daily.cases<-ggplot(data=ntl.cases,aes(x=Date,y=mov.avg))+
-  geom_col(aes(x=Date,y=n.cases,fill="n.cases"),position="dodge",alpha=0.4)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,color="mov.avg"),size=1)+
-  labs(y="Daily number of cases")+
+daily.cases <- ggplot(data = ntl.cases, aes(x = Date, y = mov.avg)) +
+  geom_col(aes(x = Date, y = n.cases, fill = "n.cases",
+               text = map(paste(f.tr("time_series_c_xlab"), ":", Date, "<br>",
+                                f.tr("time_series_c_ylab"), ":", n.cases, "<br>",
+                                f.tr("times_series_c_textlab"), ":", round(mov.avg, 2), "<br>"), HTML)),
+           position = "dodge",
+           alpha = 0.4) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  geom_line(aes(x = Date, y = mov.avg, color = "mov.avg"),
+            size = 1) +
   scale_fill_manual(name = "", values = c("n.cases" = "#1B9E77")) +
-  scale_color_manual(name= "", values = c("mov.avg" = "#E6AB02")) +
-  theme(legend.position = "none", panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x=f.tr("time_series_c_xlab"), y=f.tr("time_series_c_ylab"))
-ggplotly(daily.cases,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
+  scale_color_manual(name = "", values = c("mov.avg" = "#0d4f3b")) + # matched moving avg cols to bar cols
+  theme(legend.position = "none", 
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = f.tr("time_series_c_xlab"),
+       y = f.tr("time_series_c_ylab"))
+ggplotly(daily.cases, tooltip = "text") %>% 
+  layout(hovermode = "x") %>%
+  config(displaylogo = FALSE)
 ```
 
 
-Row {.tabset .tabset-fade}
-----------------------------------
+### `r f.tr("time_series_a_header")`
 
-### `r format(f.tr("time_series_d_header"))`
-
-```{r, warning=FALSE}
-modavg.curv<-ggplot(data=cases_by_date, aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
-ggplotly(modavg.curv)%>%config(displaylogo=FALSE)
+```{r}
+IRD_curve_labels <-
+  c(
+    f.tr("time_series_a_label_cases"),
+    f.tr("time_series_a_label_recovered"),
+    f.tr("time_series_a_label_deaths")
+  )
+IRD_curve_breaks <-
+  c(
+    f.tr("time_series_a_break_cases"),
+    f.tr("time_series_a_break_recovered"),
+    f.tr("time_series_a_break_deaths")
+  )
+plot.IRD <- IRD %>%
+  mutate(Label = case_when(
+    Type == "N" ~ f.tr("time_series_a_label_cases"),
+    Type == "R" ~ f.tr("time_series_a_label_recovered"),
+    Type == "D" ~ f.tr("time_series_a_label_deaths")
+  ))
+plot.IRD$Label <-
+  factor(plot.IRD$Label, levels = c(
+    f.tr("time_series_a_label_deaths"),
+    f.tr("time_series_a_label_cases"),
+    f.tr("time_series_a_label_recovered")
+  ))
+ggplot(data = plot.IRD, 
+       aes(x = Date, y = Type.cum.sum, fill = Label,
+           text =  map(paste("<b>", Label, "</b><br>", "Date:", Date, "<br>",
+                             f.tr("time_series_a_ylab"), ":", Type.cum.sum, "<br>"), HTML))) +
+  geom_area(
+    alpha = 0.7,
+    size = 2,
+    position = "dodge",
+  ) +
+  scale_fill_discrete(labels = IRD_curve_labels, breaks = IRD_curve_breaks) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  theme(panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = f.tr("time_series_a_xlab"),
+       y = f.tr("time_series_a_ylab")) -> IRD_curve
+IRD_curve + theme(legend.position = "bottom") -> IRD_curve
+ggplotly(IRD_curve, tooltip = "text") %>% 
+  layout(hovermode = "x") %>% 
+  config(displaylogo = FALSE)
 ```
 
-### Analamanga
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Analamanga")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alg
-ggplotly(modavg_alg)%>%config(displaylogo=FALSE)
-```
-
-### Atsinanana
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Atsinanana")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_ats
-ggplotly(modavg_ats)%>%config(displaylogo=FALSE)
-```
-
-### Alaotra-Mangoro
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Alaotra-Mangoro")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alM
-ggplotly(modavg_alM)%>%config(displaylogo=FALSE)
-```
-
-
-### Analanjirofo
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Analanjirofo")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alj
-ggplotly(modavg_alj)%>%config(displaylogo=FALSE)
-```
-
-### Alaotra-Mangoro
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Alaotra-Mangoro")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_alM
-ggplotly(modavg_alM)%>%config(displaylogo=FALSE)
-```
-
-
-### Diana
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Diana")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_dia
-ggplotly(modavg_dia)%>%config(displaylogo=FALSE)
-```
-
-### Anosy
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Anosy")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_anosy
-ggplotly(modavg_anosy)%>%config(displaylogo=FALSE)
-```
-
-### Vakinankaratra
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Vakinankaratra")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_vak
-ggplotly(modavg_vak)%>%config(displaylogo=FALSE)
-```
-
-### Atsimo-Andrefana
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Atsimo-Andrefana")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_tol
-ggplotly(modavg_tol)%>%config(displaylogo=FALSE)
-```
-
-### Boeny
-
-```{r, warning=FALSE}
-cases_by_date%>%filter(region=="Boeny")%>%
-ggplot(aes(x=Date,y=mov.avg,color=region,fill=region))+
-  geom_col(aes(x=Date,y=cases,fill=region),position="dodge",alpha=0.2,size=0.1)+
-  scale_x_date(date_breaks = "2 weeks") +
-  geom_line(aes(x=Date,y=mov.avg,colour=region),size=0.7,method="auto")+
-  labs(x=f.tr("time_series_d_xlab"), y=f.tr("time_series_d_ylab")) +
-  theme(panel.background=element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))->modavg_mja
-ggplotly(modavg_mja)%>%config(displaylogo=FALSE)
-```
 
 Row {data-width=650}
--------------------------------------------
+-----------------------------------------------------------------------
 
-### `r format(f.tr("metrics_header"))`
+### `r f.tr("map_of_cases_header")`
 
-`r format(f.tr("metrics_part_1"))`
+`r f.tr("map_of_cases_note")`
 
-`r format(f.tr("metrics_part_2"))`
+```{r}
+mada_regions <-
+  left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
+bins <- round(exp(pretty(log(cases_by_region$cases + 1e-6), n = 10)), 0) # logged breaks
+pal <- colorBin("YlOrRd", domain = mada_regions$cases, bins = bins)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
+  mada_regions$NAME,
+  mada_regions$cases,
+  mada_regions$deaths
+) %>% lapply(htmltools::HTML)
+map <- leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mada_regions,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(cases),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "topleft",
+    pal = pal,
+    values = bins,
+    title = f.tr("map_of_cases_legend_caption")
+  )
+map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+```
 
-`r format(f.tr("metrics_part_3"))`
+### `r f.tr("COVID_in_mada_header")`
 
-`r format(f.tr("metrics_part_4"))`
+`r f.tr("COVID_in_mada_part_1")`
 
-`r format(f.tr("metrics_part_5"))`
+`r f.tr("COVID_in_mada_part_2")`
+
+`r f.tr("COVID_in_mada_part_3")`
+
+`r f.tr("COVID_in_mada_part_4")`
+
+`r f.tr("COVID_in_mada_part_5")`
+
+`r paste0(f.tr("COVID_in_mada_part_6"), "**", round(last(na.trim(ntl.cases$tests.mov.avg)), 2), "**")`
+
+`r f.tr("COVID_in_mada_part_7A")` **`r format(last(cases_by_date$Date),format="%B %d %Y")`** `r f.tr("COVID_in_mada_part_7B")` **`r format(sum(cases_by_date$cases),big.mark = ",")`** `r f.tr("COVID_in_mada_part_7C")` **`r n_distinct(data$Location4,na.rm=TRUE)`** `r f.tr("COVID_in_mada_part_7D")` **`r length(deaths$Id)`** `r f.tr("COVID_in_mada_part_7E")`
+
+Row {data-width=650}
+-----------------------------------------------------------------------
+
+```{r cases_movavg, warning=FALSE}
+# This code uses the library crosstalk to link the graphs
+# Colors pulled from google sheets (please change as needed!)
+mycolors <- reg_cols$color
+names(mycolors) <- reg_cols$shapefile_name
+mycolors <- c(mycolors, c("unspecified" = "grey"))
+# Order by cumulative sums
+cases_by_date %>%
+  group_by(region) %>%
+  mutate(max_sum = max(cum.sum)) %>%
+  ungroup() %>% 
+  mutate(region = reorder(region, -max_sum)) -> cases_by_date
+cases_by_date$cheat <- "Reset to all regions when no selection"
+sd <- SharedData$new(cases_by_date, ~region, group = "Choose region")
+sd %>%
+  ggplot(aes(x = Date, y = cum.sum, fill = region, 
+           text = map(paste("<b>", region, "</b><br>",
+                       f.tr("time_series_b_xlab"), ":", Date, "<br>",
+                       f.tr("time_series_b_ylab"), ":", cum.sum, "<br>"), HTML))) +
+  geom_area(size = 0.75) +
+  scale_fill_manual(values = mycolors) + 
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  theme(panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = f.tr("time_series_b_xlab"),
+       y = f.tr("time_series_b_ylab")) -> cumulative_cases
+sd %>%
+  ggplot(aes(
+    x = Date,
+    y = mov.avg,
+    color = region,
+    fill = region,
+    text = map(paste("<b>", region, "</b><br>",
+                     f.tr("time_series_d_xlab"), ":", Date, "<br>",
+                     f.tr("time_series_d_ylab"), ":", cases, "<br>",
+                     f.tr("mov_average"), ":", round(mov.avg, 2), "<br>"), HTML))
+  ) +
+  geom_col(
+    aes(x = Date, y = cases, fill = region),
+    position = "dodge",
+    alpha = 0.2,
+    size = 0.1
+  ) +
+  geom_line(aes(x = Date, y = mov.avg, color = region), size = 0.7) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_color_manual(values = mycolors, name = "Region") +
+  scale_fill_manual(values = mycolors, name = "Region") +
+  labs(x = f.tr("time_series_d_xlab"),
+       y = f.tr("time_series_d_ylab")) +
+  theme(panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) -> modavg.curv
+```
+
+
+### `r format(f.tr("time_series_b_header"))` & `r format(f.tr("time_series_c_header"))`
+
+```{r option 1}
+bscols(
+  filter_select(
+      id = "region",
+      label = "Region",
+      sharedData = sd,
+      group = ~region,
+      multiple = TRUE,
+  ),
+  filter_checkbox(id = "regall", label = "", sharedData = sd, group = ~cheat)
+)
+bscols(
+  (ggplotly(modavg.curv, tooltip = "text",dynamicTicks=TRUE) %>% 
+    layout(yaxis = list(autorange = TRUE)) %>%
+    highlight(on = NULL, off = NULL) %>% # Turn off highlighting otherwise a pain
+    config(displaylogo = FALSE))
+)
+bscols(
+  (ggplotly(cumulative_cases, dynamicTicks=TRUE,tooltip = c("text")) %>%
+    layout(yaxis = list(autorange = TRUE)) %>%
+    highlight(on = NULL, off = NULL) %>%
+    config(displaylogo = FALSE))
+)
+```
+
+
+
+
+Row {data-width=650}
+----------------------------------
+
+### `r f.tr("metrics_header")`
+
+`r f.tr("metrics_part_1")`
+
+`r f.tr("metrics_part_2")`
+
+`r f.tr("metrics_part_3")`
+
+`r f.tr("metrics_part_4")`
+
+`r f.tr("metrics_part_5")`
 
 
 Row 
@@ -483,65 +539,121 @@ Row
 
 ### Total tests performed: How many tests did Madagascar perform so far?
 ```{r}
-valueBox(value=format(last(test$Total.tests),big.mark = ","),
-         caption=paste(f.tr("total_tests_caption_b"), 
-                       format(last(test$Date),format= "%B %d %Y")),
-         icon="fa-flask",color=ifelse(last(test$Total.tests)/27692<5,"warning","info"))
+valueBox(
+  value = format(last(test$Total.tests), big.mark = ","),
+  caption = paste(
+    f.tr("total_tests_caption_b"),
+    format(last(test$Date), format = "%B %d %Y")
+  ),
+  icon = "fa-flask",
+  color = ifelse(last(test$Total.tests) / 27692 < 5, "warning", "info")
+)
 ```
 
 ### Tests per thousand: How many tests did Madagascar perform so far?
 ```{r}
-valueBox(value=format(round(last(test$Total.tests/27692),2),big.mark = ","),
-         caption=f.tr("tests_per_k_caption"),
-         icon="fa-vial",color=ifelse(last(test$Total.tests)/27.692<5,"warning","info"))
+valueBox(
+  value = format(round(last(
+    test$Total.tests / 27692
+  ), 2), big.mark = ","),
+  caption = f.tr("tests_per_k_caption"),
+  icon = "fa-vial",
+  color = ifelse(last(test$Total.tests) / 27.692 < 5, "warning", "info")
+)
 ```
 
-### `r format(f.tr("positivity_box_header"))`
+### `r f.tr("positivity_box_header")`
 ```{r}
-positivity_ma<-ntl.cases%>%filter(!is.na(positivity.mov.avg))
-gauge(round(last(positivity_ma$positivity.mov.avg),2),min=0,max=100,symbol='%',
-      label=f.tr("positivity_box_caption"),abbreviateDecimals = 2,
-      sectors=gaugeSectors(success=c(0,5),warning = c(5,20),danger=c(20,100)))
+positivity_ma <- ntl.cases %>% filter(!is.na(positivity.mov.avg))
+gauge(
+  round(last(positivity_ma$positivity.mov.avg), 2),
+  min = 0,
+  max = 100,
+  symbol = '%',
+  label = f.tr("positivity_box_caption"),
+  abbreviateDecimals = 2,
+  sectors = gaugeSectors(
+    success = c(0, 5),
+    warning = c(5, 20),
+    danger = c(20, 100)
+  )
+)
 ```
 
 ### Daily tests (moving average)
 ```{r}
-valueBox(value=format(round(last(na.trim(ntl.cases$tests.mov.avg)),2),big.mark = ","), 
-         caption=f.tr("daily_tests_caption"),
-         icon="fa-vial",color=ifelse(ntl.cases$tests.mov.avg<500,"warning","info"))
+valueBox(
+  value = format(round(last(na.trim(ntl.cases$tests.mov.avg)), 2), big.mark = ","),
+  caption = f.tr("daily_tests_caption"),
+  icon = "fa-vial",
+  color = ifelse(ntl.cases$tests.mov.avg < 500, "warning", "info")
+)
 ```
 
 Row
 ------------
-### `r format(f.tr("tests_t_header"))`
+### `r f.tr("tests_t_header")`
 
 ```{r}
-ntl.cases%>%select(c(Date,"New cases"=n.cases,"Tests"=n.tests))%>%pivot_longer(cols=c(2,3))%>%
-ggplot( aes(x = Date, y = value,fill=name)) +
-  geom_col(size=0.5,position="dodge") +
-  #geom_point(size=0.5)+
-  scale_x_date(date_breaks = "2 weeks") +
-  scale_y_continuous()+
-  scale_fill_viridis_d(name="Variable",labels=c(f.tr("tests_t_lab_cases"), f.tr("tests_t_lab_tests")))+
-  labs(x=f.tr("tests_t_xlab"), y=f.tr("tests_t_ylab")) +
-  theme(panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1)) -> tests.ts
-ggplotly(tests.ts,dynamicTicks = TRUE)%>%layout(hovermode="x")%>%config(displaylogo=FALSE)
+ntl.cases %>% 
+  select(c(Date, "New cases" = n.cases, "Tests" = n.tests)) %>%
+  mutate(minus_pos = Tests - `New cases`, 
+         Tests = ifelse(is.na(Tests), `New cases`,  minus_pos),
+         total_tests = Tests + `New cases`) %>%
+  select(-minus_pos) %>%
+  pivot_longer(2:3) %>%
+  mutate(name = fct_relevel(name, "New cases", after = Inf), 
+         label = case_when(name == "New cases" ~ value, 
+                           name == "Tests" ~ total_tests),
+         name = case_when(name == "New cases" ~ f.tr("tests_t_lab_cases"),
+                          name == "Tests" ~ f.tr("tests_t_lab_tests"))) -> tests_pos
+test_cols <- c("#8d66a1", "#cdbbd5")
+ggplot(data = tests_pos, 
+       aes(x = Date, y = value, fill = name, 
+           text = map(paste(f.tr("tests_t_xlab"), ":", Date, "<br>",
+                             name, ":", label, "<br>"), HTML))) +
+  geom_col(size = 0.5, position = "stack") +
+  # geom_point(size = 0.5) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_fill_manual(values = test_cols, name = "") +
+  labs(x = f.tr("tests_t_xlab"), y = f.tr("tests_t_ylab")) +
+  theme(panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) -> tests.ts
+ggplotly(tests.ts, tooltip = "text") %>% 
+  layout(hovermode = "x") %>% 
+  config(displaylogo = FALSE)
 ```
 
-### `r format(f.tr("daily_pos_header"))`
+### `r f.tr("daily_pos_header")`
 
 ```{r}
-ntl.cases%>%select(c(Date,"positivity"=positivity,"Moving.average"=positivity.mov.avg))%>%
-  #pivot_longer(cols=c(2,3))%>%
-ggplot(aes(x = Date)) +
-  geom_col(aes(y=positivity,fill="positivity"),size=0.5,alpha=0.7) +
-  geom_line(aes(y= Moving.average,color="Moving.average"),size=1)+
-  scale_x_date(date_breaks = "2 weeks",limits = c(as.Date("2020-05-18"),Sys.Date())) +
-  labs(x=f.tr("daily_pos_xlab"), y=f.tr("daily_pos_ylab")) +
-  scale_fill_manual(name = "", values = c("positivity" = "chartreuse4"),labels="daily positivity") +
-  scale_color_manual(name = "", values = c("Moving.average" = "red4")) +
-  theme(legend.position = "none", panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1)) -> positivity.ts
-ggplotly(positivity.ts)
+ntl.cases %>% select(c(Date, "positivity" = positivity, "Moving.average" =
+                         positivity.mov.avg)) %>%
+  # pivot_longer(cols=c(2,3)) %>%
+  ggplot(aes(x = Date, 
+             text =  map(paste(f.tr("daily_pos_xlab"), Date, "<br>",
+                               f.tr("daily_pos_ylab"), ":", round(positivity, 2), "<br>",
+                               f.tr("mov_average"), ":", round(Moving.average, 2), "<br>"), HTML))) +
+  geom_col(aes(y = positivity, fill = "positivity"),
+           size = 0.5,
+           alpha = 0.7) +
+  geom_line(aes(y = Moving.average, color = "Moving.average"), size = 1) +
+  scale_x_date(date_breaks = "2 weeks",
+               limits = c(as.Date("2020-05-18"), Sys.Date())) +
+  labs(x = f.tr("daily_pos_xlab"),
+       y = f.tr("daily_pos_ylab")) +
+  scale_fill_manual(
+    name = "",
+    values = c("positivity" = "#00a579"),
+    labels = "daily positivity"
+  ) +
+  scale_color_manual(name = "", values = c("Moving.average" = "#004331")) +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) -> positivity.ts
+ggplotly(positivity.ts, tooltip = "text")
 ```
 
 
@@ -551,55 +663,336 @@ Row
 
 ### **Total deaths**
 ```{r}
-valueBox(value=sum(cases_by_region$deaths,na.rm=TRUE), 
-         caption=f.tr("total_deaths_caption"),
-         color="danger",icon="fa-heartbeat")
+valueBox(
+  value = sum(cases_by_region$deaths, na.rm = TRUE),
+  caption = f.tr("total_deaths_caption"),
+  color = "danger",
+  icon = "fa-heartbeat"
+)
 ```
+
 
 ### **Overall case fatality rate**
 ```{r}
-valueBox(value=paste(round(100*sum(cases_by_region$deaths)/sum(cases_by_region$cases),2),"%"),
-         caption=f.tr("cfr_caption"),
-         icon="fa-virus",
-         color="danger")
+valueBox(
+  value = paste(round(100 * sum(cases_by_region$deaths) / sum(cases_by_region$cases), 2), "%"),
+  caption = f.tr("cfr_caption"),
+  icon = "fa-virus",
+  color = "danger"
+)
 ```
+
 
 ### **daily deaths**
 ```{r}
-valueBox(value=round(last(ntl.cases$d.mov.avg),2),
-         caption=f.tr("daily_deaths_caption"),
-         icon="fa-bible",
-         color=ifelse(last(ntl.cases$d.mov.avg)<1,"warning","danger"))
+valueBox(
+  value = round(last(ntl.cases$d.mov.avg), 2),
+  caption = f.tr("daily_deaths_caption"),
+  icon = "fa-bible",
+  color = ifelse(last(ntl.cases$d.mov.avg) < 1, "warning", "danger")
+)
 ```
 
 
 Row {data-width=650}
 ----------------------------
 
-### `r format(f.tr("age_sex_header"))`
+### `r f.tr("age_sex_header")`
 
 ```{r}
-deaths%>%filter(!is.na(Sex))%>%
-  ggplot()+
-  geom_histogram(aes(x=Age),position="dodge",binwidth=5,fill="#7570B3")+
-  labs(x=f.tr("age_sex_xlab"), y=f.tr("age_sex_ylab"),
-       caption=f.tr("age_sex_caption")) +
-  theme_bw()+facet_grid(~Sex)+scale_y_continuous(limits=c(0,5))->death_hist
-death_hist
+sex_labs <- c(f.tr("age_sex_male"), f.tr("age_sex_female"))
+names(sex_labs) <- c("M", "F")
+deaths %>% filter(!is.na(Sex)) %>%
+  ggplot() +
+  geom_histogram(aes(x = Age, fill = Sex),
+                 position = "dodge",
+                 binwidth = 5, color = "white") +
+  labs(x = f.tr("age_sex_xlab"), y = f.tr("age_sex_ylab")) +
+  scale_fill_manual(values = c("#ff6c6c", "#00468b"), guide = "none") +
+  theme_bw() + 
+  facet_grid( ~ Sex, labeller = labeller(Sex = sex_labs)) + 
+  scale_y_continuous(limits = c(0, 5)) +
+  theme(legend.position = 'none') -> death_hist
+# So caption doesn't get cutoff wrap in bscols
+bscols(
+  ggplotly(death_hist, tooltip = "none")
+)
 ```
 
-### `r format(f.tr("mortality_t_header"))`
+`r f.tr("age_sex_caption")`
+
+### `r f.tr("mortality_t_header")`
 
 ```{r}
-ntl.cases%>%rename("deaths"=n.deaths,"moving.average"=d.mov.avg)%>%
-  ggplot(aes(x=Date))+
-  geom_col(aes(y=deaths,fill="deaths"))+
-  geom_line(aes(y=moving.average,color="moving.average"),size=1)+
-  labs(x=f.tr("mortality_t_xlab"), y=f.tr("mortality_t_ylab")) +
+ntl.cases %>% rename("deaths" = n.deaths, "moving.average" = d.mov.avg) %>%
+  ggplot(aes(x = Date, 
+             text =  map(paste(f.tr("mortality_t_xlab"), Date, "<br>",
+                               f.tr("mortality_t_ylab"), ":", deaths, "<br>",
+                               f.tr("mov_average"), ":", round(moving.average, 2), "<br>"), HTML))) +
+  geom_col(aes(y = deaths, fill = "deaths")) +
+  geom_line(aes(y = moving.average, color = "moving.average"), size = 1) +
+  labs(x = f.tr("mortality_t_xlab"),
+       y = f.tr("mortality_t_ylab")) +
   scale_x_date(date_breaks = "2 weeks") +
-  scale_y_continuous(limits=c(0,20))+
-  scale_fill_manual(name = "", values = c("deaths" = "#1f78b4"),labels="number of deaths") +
-  scale_color_manual(name = "", values = c("moving.average" = "#fdbf6f")) +
-  theme(legend.position = "none", panel.background=element_blank(),axis.text.x = element_text(angle = 45, hjust = 1))->death_time
-ggplotly(death_time)
+  scale_y_continuous(limits = c(0, 5)) +
+  scale_fill_manual(
+    name = "",
+    values = c("deaths" = "#ff6262"),
+    labels = "number of deaths"
+  ) +
+  scale_color_manual(name = "",
+                     values = c("moving.average" = "#9d0000")) +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) -> death_time
+ggplotly(death_time, tooltip = "text")
+```
+
+R~t~ estimates
+===================================
+
+**Estimating R~t~ for Madagascar** {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+rt_summary <-
+  data.table::fread(
+    "https://raw.githubusercontent.com/labmetcalf/mada-rt/master/latest/rt_summary.csv"
+  )
+rt_ests <-
+  data.table::fread(
+    "https://raw.githubusercontent.com/labmetcalf/mada-rt/master/latest/rt_ests.csv"
+  )
+nowcast <- 
+  data.table::fread(
+    "https://raw.githubusercontent.com/labmetcalf/mada-rt/master/latest/nowcast.csv"
+  )
+```
+\
+\
+The time varying reproductive number (R~t~), which represents the average number of secondary infections generated by each new infectious case, is a way to track the progress of an outbreak. 
+\
+\
+If R~t~ in the population is greater than 1, cases will continue to grow in number. If R~t~ is less than 1, case numbers will decline. The higher the value of R~t~ above 1, the faster an epidemic will grow. 
+\
+\
+R~t~ was estimated using the method described [here](https://epiforecasts.io/covid/), using the R packages [`epiNow`](https://epiforecasts.io/EpiNow/), [`epiSoon`](https://github.com/epiforecasts/EpiSoon), and [`epiEstim`](), code available [here](https://cran.r-project.org/web/packages/EpiEstim/index.html).
+\
+\
+These estimates were last updated on `r format(min(ymd(rt_summary$date)), "%b %d %Y")`
+
+Row 
+-----------------------------------------------------------------------
+
+### **R~t~ National Estimate** 
+
+```{r}
+# Either forecast for today or the latest date available
+if(max(rt_ests$date) < Sys.Date()) rt_date <- max(rt_ests$date) else rt_date <- Sys.Date()
+rt_ests %>%
+  filter(region == "National", 
+         date == rt_date) %>% .$median -> rt_national
+gauge(round(rt_national, 2), min = 0, max = 5, symbol = '',
+      label = paste("Estimate on", format(rt_date, format="%B %d %Y")),
+      abbreviateDecimals = 2,
+      sectors = gaugeSectors(success=c(0,1), warning = c(1, 2), danger = c(2, 5)))
+```
+
+### Expected cases
+
+```{r}
+rt_summary %>%
+  filter(Region == "National") %>%
+  .$`Expected change in daily cases` -> expected
+box_col <- case_when(expected == "Increasing" ~ "danger", 
+                     expected == "Likely increasing" ~ "LightCoral", 
+                     expected == "Unsure" ~ "Grey", 
+                     expected == "Likely decreasing" ~ "DarkSeaGreen", 
+                     expected == "Decreasing" ~ "DarkOliveGreen")
+valueBox(expected, 
+         caption = "Expected change in daily cases",
+         color = box_col)
+```
+
+Row {.tabset data-height=800}
+-----------------------------------------------------------------------
+### **National**
+
+```{r}
+ggplot(filter(rt_ests, region == "National", date >= "2020-03-23"), 
+       aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
+  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+  geom_hline(yintercept = 1, linetype = 3) +
+  labs(x = "Date", y = "Effective reproductive number") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_linetype_manual(values = c(2, 1), name = "Estimate") +
+  scale_fill_manual(values = c("blue", "navy"), name = "Estimate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
+# Manually fix legends
+rp <- ggplotly(rtcast)
+rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
+rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
+nowcast %>%
+  mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
+now_cols <- c("blue", "navy")
+names(now_cols) <- c("Observed by report date", "nowcast")
+ggplot(filter(nowcast, region == "National", date >= "2020-03-23"), 
+       aes(x = ymd(date), group = type, fill = type)) +
+  geom_col(aes(y = median), alpha = 0.8) +
+  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+  scale_fill_manual(values = now_cols, name = "") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+  labs(x = "Date", y = "Cases") +
+  theme(legend.position = "bottom", 
+        axis.text.x = element_text(angle = 45, hjust = 1)) -> now
+# Manually fix legends
+cp <- ggplotly(now)
+cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
+cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
+subplot(
+  style(ggplotly(rp), hoverinfo = "none"),
+  style(ggplotly(cp), hoverinfo = "none"),
+  nrows = 2, 
+  shareX = TRUE
+)
+```
+
+### **Analamanga** 
+
+```{r}
+cols <- c(alpha(mycolors[names(mycolors) == "Analamanga"], 0.7), 
+          alpha(mycolors[names(mycolors) == "Analamanga"], 0.4))
+names(cols) <- c("nowcast", "forecast")
+ggplot(filter(rt_ests, region == "Analamanga", date >= "2020-03-23"), 
+       aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
+  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+  geom_hline(yintercept = 1, linetype = 3) +
+  labs(x = "Date", y = "Effective reproductive number") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_linetype_manual(values = c(2, 1), name = "") +
+  scale_fill_manual(values = cols, name = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
+# Manually fix legends
+rp <- ggplotly(rtcast)
+rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
+rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
+now_cols <- cols
+names(now_cols) <- c("Observed by report date", "nowcast")
+nowcast %>%
+  mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
+ggplot(filter(nowcast, region == "Analamanga", date >= "2020-03-23"), 
+       aes(x = ymd(date), group = type, fill = type)) +
+  geom_col(aes(y = median), alpha = 0.8) +
+  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+  scale_fill_manual(values = now_cols, name = "") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+  labs(x = "Date", y = "Cases") +
+  theme(legend.position = "bottom", 
+        axis.text.x = element_text(angle = 45, hjust = 1)) -> now
+# Manually fix legends
+cp <- ggplotly(now)
+cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
+cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
+subplot(
+  style(ggplotly(rp), hoverinfo = "none"),
+  style(ggplotly(cp), hoverinfo = "none"),
+  nrows = 2, 
+  shareX = TRUE
+)
+       
+```
+
+
+### **Atsinanana** 
+
+```{r}
+cols <- c(alpha(mycolors[names(mycolors) == "Atsinanana"], 0.7), 
+          alpha(mycolors[names(mycolors) == "Atsinanana"], 0.4))
+names(cols) <- c("nowcast", "forecast")
+ggplot(filter(rt_ests, region == "Atsinanana", date >= "2020-03-23"), 
+       aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
+  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+  geom_hline(yintercept = 1, linetype = 3) +
+  labs(x = "Date", y = "Effective reproductive number") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_linetype_manual(values = c(2, 1), name = "") +
+  scale_fill_manual(values = cols, name = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
+# Manually fix legends
+rp <- ggplotly(rtcast)
+rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
+rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
+now_cols <- cols
+names(now_cols) <- c("Observed by report date", "nowcast")
+nowcast %>%
+  mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
+ggplot(filter(nowcast, region == "Atsinanana", date >= "2020-03-23"), 
+       aes(x = ymd(date), group = type, fill = type)) +
+  geom_col(aes(y = median), alpha = 0.8) +
+  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+  scale_fill_manual(values = now_cols, name = "") +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+  labs(x = "Date", y = "Cases") +
+  theme(legend.position = "bottom", 
+        axis.text.x = element_text(angle = 45, hjust = 1)) -> now
+# Manually fix legends
+cp <- ggplotly(now)
+cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
+cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
+subplot(
+  style(ggplotly(rp), hoverinfo = "none"),
+  style(ggplotly(cp), hoverinfo = "none"),
+  nrows = 2, 
+  shareX = TRUE, shareY = FALSE
+)
+       
+```
+
+
+Row {data-height=400}
+-------------------------------
+
+### Notes
+
+* We simulated infection dates (n = 500) using the methods described  [here](https://wellcomeopenresearch.org/articles/5-112/v1).
+
+* Expected change in daily cases were classified as:  
+    + Increasing: < 5% of resulting R~t~ estimates were below 1.
+    + Likely increasing: < 20% of resulting R~t~ estimates were below 1.
+    + Unsure: 20 - 80% of resulting R~t~ estimates were below 1
+    + Likely decreasing: > 80% of resulting R~t~ estimates were below 1
+    + Decreasing: > 95% of of resulting R~t~ estimates were below 1
+    
+* For model estimates of R~t~ and cases, the darker shading shows the 50% credible intervals and the lighter shaded ribbon shows the 90% credible intervals.
+
+* Forecasts of R~t~ at low/zero case counts have wide credible intervals and low confidence.
+
+* There are a number of limitations and uncertainties in these methods, many of which are reviewed [here](https://www.medrxiv.org/content/10.1101/2020.06.18.20134858v2?rss=1). 
+
+```{r comparison}
+# starting code for comparing Mada to other countries
+# following instructions from here:
+# https://stackoverflow.com/questions/50161492/how-do-i-scrape-data-from-an-arcgis-online-map
+# pull in Africa cdc data
+afr_cdc <- jsonlite::fromJSON("https://services8.arcgis.com/vWozsma9VzGndzx7/arcgis/rest/services/NEW_Dashboard/FeatureServer/0/query?where=0%3D0&outFields=%2A&f=json")
+afr_cdc_df <- tibble::as_tibble(afr_cdc$features$attributes)
+# add in Mada data and compare
+# ggplot(data = filter(afr_cdc_df, !is.na(Tests)), 
+#        aes(x = reorder(Country, Tests/`2020_Population`*1e5), 
+#            y = Tests/`2020_Population`*1e5)) +
+#   geom_col() +
+#   labs(x = "", y = "Tests per 100k persons") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
 ```
