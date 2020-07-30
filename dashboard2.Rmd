@@ -778,7 +778,7 @@ The time varying reproductive number (R~t~), which represents the average number
 If R~t~ in the population is greater than 1, cases will continue to grow in number. If R~t~ is less than 1, case numbers will decline. The higher the value of R~t~ above 1, the faster an epidemic will grow. 
 \
 \
-R~t~ was estimated using the method described [here](https://epiforecasts.io/covid/), using the R packages [`epiNow`](https://epiforecasts.io/EpiNow/), [`epiSoon`](https://github.com/epiforecasts/EpiSoon), and [`epiEstim`](), code available [here](https://cran.r-project.org/web/packages/EpiEstim/index.html).
+R~t~ was estimated using the method described [here](https://epiforecasts.io/covid/), using the R packages [`epiNow`](https://epiforecasts.io/EpiNow/), [`epiSoon`](https://github.com/epiforecasts/EpiSoon), and [`epiEstim`](https://cran.r-project.org/web/packages/EpiEstim/index.html), code available [here](https://github.com/labmetcalf/mada-rt).
 \
 \
 These estimates were last updated on `r format(min(ymd(rt_summary$date)), "%b %d %Y")`
@@ -789,13 +789,11 @@ Row
 ### **R~t~ National Estimate** 
 
 ```{r}
-# Either forecast for today or the latest date available
-if(max(rt_ests$date) < Sys.Date()) rt_date <- max(rt_ests$date) else rt_date <- Sys.Date()
-rt_ests %>%
-  filter(region == "National", 
-         date == rt_date) %>% .$median -> rt_national
-gauge(round(rt_national, 2), min = 0, max = 5, symbol = '',
-      label = paste("Estimate on", format(rt_date, format="%B %d %Y")),
+# Updating so that it is the latest estimate
+rt_summary %>%
+  filter(Region == "National") %>% .$`Effective reproduction no.` -> rt_national
+gauge(rt_national, min = 0, max = 5, symbol = '',
+      label = paste("Estimate on", format(rt_summary$date[1], format="%B %d %Y")),
       abbreviateDecimals = 2,
       sectors = gaugeSectors(success=c(0,1), warning = c(1, 2), danger = c(2, 5)))
 ```
