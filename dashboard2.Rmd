@@ -8,7 +8,7 @@ output:
     theme: bootstrap
     source_code: https://github.com/fidyras/madadashboard
     navbar:
-      
+  
       - { title: "<img style=\"width: 16px;\" src=\"www/us16.png\" />   English", href: "dashboard_EN.html"} 
       - { title: "<img style=\"width: 16px;\" src=\"www/mada16.png\" />   Malagasy", href: "index.html"}
       - { title: "<img style=\"width: 16px;\" src=\"www/france16.png\" />   French", href: "dashboard_fr.html"}
@@ -782,7 +782,7 @@ If R~t~ in the population is greater than 1, cases will continue to grow in numb
 R~t~ was estimated using the method described [here](https://epiforecasts.io/covid/), using the R packages [`epiNow`](https://epiforecasts.io/EpiNow/), [`epiSoon`](https://github.com/epiforecasts/EpiSoon), and [`epiEstim`](https://cran.r-project.org/web/packages/EpiEstim/index.html), code available [here](https://github.com/labmetcalf/mada-rt).
 \
 \
-These estimates were last updated on `r format(min(ymd(rt_summary$date)), "%b %d %Y")`
+These estimates were last updated on `r format(min(ymd(rt_summary$date_ests)), "%Y-%m-%d")`
 
 Row 
 -----------------------------------------------------------------------
@@ -790,11 +790,11 @@ Row
 ### **R~t~ National Estimate** 
 
 ```{r}
-# Updating so that it is the latest estimate
+# Updating so that it is the latest nowcast
 rt_summary %>%
   filter(Region == "National") %>% .$`Effective reproduction no.` -> rt_national
 gauge(rt_national, min = 0, max = 5, symbol = '',
-      label = paste("Estimate on", format(rt_summary$date[1], format="%B %d %Y")),
+      label = paste("Nowcast on", format(rt_summary$date[1], format="%Y-%m-%d")),
       abbreviateDecimals = 2,
       sectors = gaugeSectors(success=c(0,1), warning = c(1, 2), danger = c(2, 5)))
 ```
