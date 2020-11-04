@@ -65,11 +65,7 @@ test   <-
     "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
     sheet = 3
   )
-events <-
-  read_sheet(
-    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
-    sheet = 5
-  )
+
 text   <-
   read_sheet(
     "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
@@ -80,6 +76,20 @@ reg_cols <-
     "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
     sheet = 4
   )
+
+events <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 5
+  )
+
+weekly <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 8
+  )
+weekly<-weekly%>%mutate(cum.cases=cumsum(n.cases))
+weekly$week<-as.Date(weekly$week)
 # shapefiles
 mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
 # Cases by region
@@ -180,6 +190,200 @@ f.tr <- function(ref) {
 }
 ```
 
+`r f.tr("weekly")`
+=======================================================================
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+\
+
+```{r, results='asis', verbatim=TRUE}
+date_updated <- format(last(weekly$week), format = "%B %d %Y") # any inline stats you need ahead of time!
+```
+
+`r f.tr("sidebar_part_1")`
+
+`r f.tr("sidebar_part_2")`
+
+`r f.tr("sidebar_part_3")`
+
+`r f.tr("sidebar_part_4")`
+
+`r paste(f.tr("sidebar_part_5"), date_updated, sep = " ")` 
+
+`r f.tr("sidebar_part_7")`
+
+`r f.tr("sidebar_part_8")`
+
+`r f.tr("sidebar_part_9")`
+
+Row 
+-----------------------------------------------------------------------
+
+### cases
+
+```{r}
+valueBox(
+  value = format(sum(weekly$n.cases,na.rm=TRUE), big.mark = ","),
+  caption = paste("total number of cases until",
+                  format(last(weekly$week), format = "%B %d %Y")),
+  icon = "fa-ambulance",
+  color = "info"
+)
+```
+
+### deaths
+
+```{r}
+
+valueBox(
+  value = sum(weekly$n.deaths, na.rm = TRUE),
+  caption = paste("total number of deaths recorded until",
+                  format(last(weekly$week), format = "%B %d %Y")),
+  color = "danger",
+  icon = "fa-heartbeat"
+)
+
+```
+
+### tests
+
+```{r}
+
+valueBox(
+  value = format(last(weekly$n.tests), big.mark = ","),
+  caption = paste("Number of tests performed during week ending on",
+    format(last(weekly$week), format = "%B %d %Y")),
+  icon = "fa-flask",
+  color = ifelse(last(weekly$n.tests) == min(weekly$n.tests), "warning", "info")
+  )
+
+
+```
+
+
+
+### Positivity
+
+```{r}
+
+weekly %>% filter(n.tests!=0)%>%mutate(positivity=n.cases/n.tests*100)->weekly.pos
+gauge(
+  round(last(weekly.pos$positivity), 2),
+  min = 0,
+  max = 100,
+  symbol = '%',
+  label = paste("positivity during week \n ending on",
+    last(weekly$week)),
+  abbreviateDecimals = 2,
+  sectors = gaugeSectors(
+    success = c(0, 5),
+    warning = c(5, 20),
+    danger = c(20, 100)
+  )
+)
+
+```
+
+Row 
+-----------------------------------------------------------------------
+### Number of new cases per week
+
+```{r, warning=FALSE}
+
+weekly.cases <- ggplot(data = weekly, aes(x = week, y = n.cases)) +
+  geom_col(aes(x = week, y = n.cases, fill = "n.cases")) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_fill_manual(name = "", values = c("n.cases" = "#1B9E77")) +
+  theme(legend.position = "none", 
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Week ending on",
+       y = "Number of cases per week")
+ggplotly(weekly.cases, tooltip = "text") %>% 
+  layout(hovermode = "x") %>%
+  config(displaylogo = FALSE)
+```
+
+
+### Number of deaths per week
+
+```{r, warning=FALSE}
+weekly.deaths <- ggplot(data = weekly, aes(x = week, y = n.deaths)) +
+  geom_col(aes(x = week, y = n.deaths, fill = "n.deaths")) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+    scale_fill_manual(
+    name = "",
+    values = "#ff6262",
+    labels = "number of deaths") +
+  theme(legend.position = "none", 
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Week ending on",
+       y = "Number of deaths per week")
+ggplotly(weekly.deaths, tooltip = "text") %>% 
+  layout(hovermode = "x") %>%
+  config(displaylogo = FALSE)
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Positivity
+
+
+```{r}
+weekly%>%
+  ggplot(aes(x = week)) +
+  geom_col(aes(y = n.tests, fill = "tests"),
+           size = 0.5,
+           alpha = 0.7) +
+  scale_x_date(date_breaks = "2 weeks",
+               limits = c(as.Date("2020-05-18"), Sys.Date())) +
+  scale_fill_manual(
+    name = "",
+    values = c("tests" = "#8d66a1"),
+    labels = "tests"
+  ) +
+  labs(x = "Week ending on",
+       y = "Number of tests per week")+
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) -> tests.ts
+ggplotly(tests.ts, tooltip = "text")
+```
+
+
+
+### Positivity
+
+
+```{r}
+weekly.pos%>%
+  ggplot(aes(x = week)) +
+  geom_col(aes(y = positivity, fill = "positivity"),
+           size = 0.5,
+           alpha = 0.7) +
+  scale_x_date(date_breaks = "2 weeks",
+               limits = c(as.Date("2020-05-18"), Sys.Date())) +
+  scale_fill_manual(
+    name = "",
+    values = c("positivity" = "#00a579"),
+    labels = "Positivity"
+  ) +
+  labs(x = "Week ending on",
+       y = "Positivity")+
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) -> positivity.ts 
+  
+ggplotly(positivity.ts, tooltip = "text")
+
+```
+
 `r f.tr("tab_title")`
 ========================================================================
 
@@ -187,7 +391,7 @@ Sidebar {.sidebar}
 -----------------------------------------------------------------------
 \
 
-```{r sidebar, results='asis', verbatim=TRUE}
+```{r, results='asis', verbatim=TRUE}
 date_updated <- format(last(cases$Date), format = "%B %d %Y") # any inline stats you need ahead of time!
 ```
 
