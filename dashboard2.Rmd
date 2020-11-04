@@ -330,7 +330,7 @@ ggplotly(weekly.deaths, tooltip = "text") %>%
 Row 
 -----------------------------------------------------------------------
 
-### Number of tests
+### Number of tests per week
 
 
 ```{r}
@@ -375,7 +375,7 @@ weekly.pos%>%
     labels = "Positivity"
   ) +
   labs(x = "Week ending on",
-       y = "Positivity")+
+       y = "Positivity (%)")+
   theme(
     legend.position = "none",
     panel.background = element_blank(),
