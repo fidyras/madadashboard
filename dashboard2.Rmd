@@ -247,6 +247,21 @@ valueBox(
 
 ```
 
+### cases
+
+```{r}
+
+valueBox(
+  value = format(last(weekly$n.cases), big.mark = ","),
+  caption = paste("Number of cases reported during week ending on",
+    format(last(weekly$week), format = "%B %d %Y")),
+  icon = "fa-viruses",
+  color = "warning"
+  )
+
+
+```
+
 ### tests
 
 ```{r}
@@ -312,7 +327,8 @@ ggplotly(weekly.cases, tooltip = "text") %>%
 ```{r, warning=FALSE}
 weekly.deaths <- ggplot(data = weekly, aes(x = week, y = n.deaths)) +
   geom_col(aes(x = week, y = n.deaths, fill = "n.deaths")) +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+    scale_x_date(date_breaks = "2 weeks",
+               limits = c(as.Date("2020-03-18"), Sys.Date())) +
     scale_fill_manual(
     name = "",
     values = "#ff6262",
@@ -340,7 +356,8 @@ weekly%>%
            size = 0.5,
            alpha = 0.7) +
   scale_x_date(date_breaks = "2 weeks",
-               limits = c(as.Date("2020-05-18"), Sys.Date())) +
+               limits = c(as.Date("2020-03-18"), Sys.Date())) +
+  scale_y_continuous(breaks=seq(0,7000,1000))+
   scale_fill_manual(
     name = "",
     values = c("tests" = "#8d66a1"),
@@ -367,8 +384,8 @@ weekly.pos%>%
   geom_col(aes(y = positivity, fill = "positivity"),
            size = 0.5,
            alpha = 0.7) +
-  scale_x_date(date_breaks = "2 weeks",
-               limits = c(as.Date("2020-05-18"), Sys.Date())) +
+   scale_x_date(date_breaks = "2 weeks",
+               limits = c(as.Date("2020-03-18"), Sys.Date())) +
   scale_fill_manual(
     name = "",
     values = c("positivity" = "#00a579"),
