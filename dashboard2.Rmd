@@ -327,8 +327,7 @@ ggplotly(weekly.cases, tooltip = "text") %>%
 ```{r, warning=FALSE}
 weekly.deaths <- ggplot(data = weekly, aes(x = week, y = n.deaths)) +
   geom_col(aes(x = week, y = n.deaths, fill = "n.deaths")) +
-    scale_x_date(date_breaks = "2 weeks",
-               limits = c(as.Date("2020-03-18"), Sys.Date())) +
+    scale_x_date(date_breaks = "2 weeks") +
     scale_fill_manual(
     name = "",
     values = "#ff6262",
