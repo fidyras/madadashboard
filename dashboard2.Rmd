@@ -355,8 +355,7 @@ weekly%>%
   geom_col(aes(y = n.tests, fill = "tests"),
            size = 0.5,
            alpha = 0.7) +
-  scale_x_date(date_breaks = "2 weeks",
-               limits = c(as.Date("2020-03-18"), Sys.Date())) +
+  scale_x_date(date_breaks = "2 weeks") +
   scale_y_continuous(breaks=seq(0,7000,1000))+
   scale_fill_manual(
     name = "",
@@ -384,8 +383,7 @@ weekly.pos%>%
   geom_col(aes(y = positivity, fill = "positivity"),
            size = 0.5,
            alpha = 0.7) +
-   scale_x_date(date_breaks = "2 weeks",
-               limits = c(as.Date("2020-03-18"), Sys.Date())) +
+   scale_x_date(date_breaks = "2 weeks") +
   scale_fill_manual(
     name = "",
     values = c("positivity" = "#00a579"),
