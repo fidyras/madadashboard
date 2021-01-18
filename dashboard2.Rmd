@@ -321,6 +321,8 @@ ggplotly(weekly.cases, tooltip = "text") %>%
   config(displaylogo = FALSE)
 ```
 
+Row 
+-----------------------------------------------------------------------
 
 ### Number of deaths per week
 
@@ -340,7 +342,49 @@ weekly.deaths <- ggplot(data = weekly, aes(x = week, y = n.deaths)) +
 ggplotly(weekly.deaths, tooltip = "text") %>% 
   layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
+
 ```
+
+
+### Case Fatality Ratio
+
+```{r}
+weekly<-weekly%>%mutate(cum.deaths=cumsum(n.deaths),cfr=cum.deaths/cum.cases*100)
+cfr_weekly<-weekly%>%
+  ggplot(aes(x = week)) +
+  geom_line(aes(x = week, y = cfr)) +
+  scale_y_continuous(name="case fatality rate (%)", breaks=seq(0,5,0.5))+
+  scale_x_date(date_breaks = "2 weeks") +
+  scale_fill_manual(
+    name = "",
+    values = "#ff6262",
+    labels = "number of deaths") +
+  theme(legend.position = "none", 
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Week ending on",
+       y = "Number of deaths per week")
+
+ggplotly(cfr_weekly) %>% 
+  layout(hovermode = "x") %>%
+  config(displaylogo = FALSE)
+
+```
+
+
+
+
+### Case Fatality Ratio
+
+Through `r last(weekly$week)`, Madagascar has officially registered `r last(weekly$week)` cases and `r last(weekly$cum.deaths)`.
+
+Using data on deaths that occurred and the number of cases, we can estimate the case fatality ratio. The CFR is defined as the proportion of **confirmed COVID-19 deaths** over the number of **confirmed COVID19 cases**.
+
+The CFR can help us understand the severity of the disease in confirmed cases however it is not the same as the risk of death for an infected person and thus **does not** represent the probability of dying if an individual is infected by COVID-19.
+
+In addition, *the final clinical outcome of most of the reported cases is unknown*. Therefore the tally of deaths over the confirmed cases might underestimate the true case fatality ratio.
+
+
 
 Row 
 -----------------------------------------------------------------------
