@@ -376,7 +376,7 @@ ggplotly(cfr_weekly) %>%
 
 ### Case Fatality Ratio
 
-Through `r last(weekly$week)`, Madagascar has officially registered `r last(weekly$cum.cases)` cases and `r last(weekly$cum.deaths)` deaths.
+Through `r last(weekly$week)`, Madagascar has officially registered `r format(last(weekly$cum.cases),scientific=FALSE)` cases and `r format(last(weekly$cum.deaths),scientific=FALSE)` deaths.
 
 Using data on deaths that occurred and the number of cases, we can estimate the **case fatality ratio (CFR)**. The CFR is defined as the proportion of **confirmed COVID-19 deaths** over the number of **confirmed COVID19 cases**.
 
