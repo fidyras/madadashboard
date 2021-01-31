@@ -696,7 +696,7 @@ map %>% addProviderTiles(providers$Esri.WorldStreetMap)
 
 `r f.tr("COVID_in_mada_part_7A")` **`r format(last(cases_by_date$Date),format="%B %d %Y")`** `r f.tr("COVID_in_mada_part_7B")` **`r format(sum(cases_by_date$cases),big.mark = ",")`** `r f.tr("COVID_in_mada_part_7C")` **`r n_distinct(data$Location4,na.rm=TRUE)`** `r f.tr("COVID_in_mada_part_7D")` **`r length(deaths$Id)`** `r f.tr("COVID_in_mada_part_7E")`
 
-Row {data-width=650}
+Row {data-width=400}
 -----------------------------------------------------------------------
 
 ```{r cases_movavg, warning=FALSE}
@@ -755,7 +755,7 @@ sd %>%
 
 ### `r format(f.tr("time_series_b_header"))` & `r format(f.tr("time_series_c_header"))`
 
-```{r option 1}
+```{r option 1,fig.height = 12}
 bscols(
   filter_select(
       id = "region",
@@ -766,7 +766,7 @@ bscols(
   ),
   filter_checkbox(id = "regall", label = "", sharedData = sd, group = ~cheat)
 )
-bscols(
+bscols(height="800px",
   (ggplotly(modavg.curv, tooltip = "text",dynamicTicks=TRUE) %>% 
     layout(yaxis = list(autorange = TRUE)) %>%
     highlight(on = NULL, off = NULL) %>% # Turn off highlighting otherwise a pain
