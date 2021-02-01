@@ -88,10 +88,19 @@ weekly <-
     "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
     sheet = 8
   )
+
+weekly_region <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 9
+  )
+weekly_region%>%group_by(region)%>%summarise(cases=sum(cases))->region_cumulative #sum of cases by region since March
 weekly<-weekly%>%mutate(cum.cases=cumsum(n.cases))
 weekly$week<-as.Date(weekly$week)
+
 # shapefiles
 mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
+
 # Cases by region
 data$region <- mdg2$NAME[amatch(data$Location4, mdg2$NAME, maxDist = 6)]
 data$Date <- as.Date(data$Date)
@@ -175,6 +184,10 @@ ntl.cases <- ntl.cases[order(ntl.cases$Date, na.last = FALSE), ]
 ntl.cases$cum.cases <- na.locf(ntl.cases$cum.cases)
 ntl.cases$cum.deaths <- na.locf(ntl.cases$cum.deaths)
 ntl.cases$Date <- as.Date(ntl.cases$Date)
+
+
+
+
 ```
 
 
@@ -301,6 +314,8 @@ gauge(
 
 ```
 
+
+
 Row 
 -----------------------------------------------------------------------
 ### Number of new cases per week
@@ -320,6 +335,55 @@ ggplotly(weekly.cases, tooltip = "text") %>%
   layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
 ```
+
+### `r f.tr("map_of_cases_header")`
+
+`r f.tr("map_of_cases_note")`
+
+```{r}
+mada_regions <-
+  left_join(mdg2, region_cumulative, by = c("NAME" = "region"))
+bins <- round(exp(pretty(log(cases_by_region$cases), n = 10)), 0) # logged breaks
+pal <- colorBin("YlOrRd", domain = mada_regions$cases, bins = bins)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Cases: %i <br/>",
+  mada_regions$NAME,
+  mada_regions$cases
+) %>% lapply(htmltools::HTML)
+map <- leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mada_regions,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(cases),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "topleft",
+    pal = pal,
+    values = bins,
+    title = f.tr("map_of_cases_legend_caption")
+  )
+map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+```
+
+
 
 Row 
 -----------------------------------------------------------------------
@@ -638,14 +702,13 @@ Row {data-width=650}
 
 ```{r}
 mada_regions <-
-  left_join(mdg2, cases_by_region, by = c("NAME" = "region"))
+  left_join(mdg2, region_cumulative, by = c("NAME" = "region"))
 bins <- round(exp(pretty(log(cases_by_region$cases), n = 10)), 0) # logged breaks
 pal <- colorBin("YlOrRd", domain = mada_regions$cases, bins = bins)
 labels <- sprintf(
-  "<strong>%s</strong><br/> Cases: %i <br/> Deaths: %i",
+  "<strong>%s</strong><br/> Cases: %i <br/>",
   mada_regions$NAME,
-  mada_regions$cases,
-  mada_regions$deaths
+  mada_regions$cases
 ) %>% lapply(htmltools::HTML)
 map <- leaflet()  %>%
   addTiles() %>%
