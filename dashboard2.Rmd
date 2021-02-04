@@ -94,6 +94,7 @@ weekly_region <-
     "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
     sheet = 9
   )
+weekly_region$week<-as.Date(weekly_region$week)
 weekly_region%>%group_by(region)%>%summarise(cases=sum(cases))->region_cumulative #sum of cases by region since March
 weekly<-weekly%>%mutate(cum.cases=cumsum(n.cases))
 weekly$week<-as.Date(weekly$week)
@@ -383,6 +384,74 @@ map <- leaflet()  %>%
 map %>% addProviderTiles(providers$Esri.WorldStreetMap)
 ```
 
+
+```{r, warning=FALSE}
+# This code uses the library crosstalk to link the graphs
+# Colors pulled from google sheets (please change as needed!)
+mycolors <- reg_cols$color
+names(mycolors) <- reg_cols$shapefile_name
+mycolors <- c(mycolors, c("unspecified" = "grey"))
+# Order by cumulative sums
+weekly_region %>%
+  group_by(region) %>%
+  mutate(cum.sum=cumsum(cases),max_sum = max(cum.sum)) %>%
+  ungroup() %>% 
+  mutate(region = reorder(region, -max_sum)) -> cases_by_week
+cases_by_week$cheat <- "Reset to all regions when no selection"
+sd <- SharedData$new(cases_by_week, ~region, group = "Choose region")
+sd %>%
+  ggplot(aes(x = week, y = cum.sum, fill = region, 
+           text = map(paste("<b>", region, "</b><br>",
+                       f.tr("time_series_b_xlab"), ":", week, "<br>",
+                       f.tr("time_series_b_ylab"), ":", cum.sum, "<br>"), HTML))) +
+  geom_area(size = 0.75) +
+  scale_fill_manual(values = mycolors) + 
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  theme(panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = f.tr("time_series_b_xlab"),
+       y = f.tr("time_series_b_ylab")) -> cumulative_cases
+
+sd%>%
+  ggplot() +
+  geom_col(
+    aes(x =week, y = cases, fill = region),
+    position = "dodge",
+    alpha = 0.2,
+    size = 0.1
+  ) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_color_manual(values = mycolors, name = "Region") +
+  scale_fill_manual(values = mycolors, name = "Region") +
+  labs(x = f.tr("time_series_d_xlab"),
+       y = f.tr("time_series_d_ylab")) +
+  theme(panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) -> modavg.curv
+```
+
+
+### `r format(f.tr("time_series_b_header"))` & `r format(f.tr("time_series_c_header"))`
+
+```{r,fig.height = 12}
+bscols(
+  filter_select(
+      id = "region",
+      label = "Region",
+      sharedData = sd,
+      group = ~region,
+      multiple = TRUE,
+  ),
+  filter_checkbox(id = "regall", label = "", sharedData = sd, group = ~cheat)
+)
+bscols(
+  (ggplotly(modavg.curv, tooltip = "text",dynamicTicks=TRUE) %>% 
+    layout(yaxis = list(autorange = TRUE)) %>%
+    highlight(on = NULL, off = NULL) %>% # Turn off highlighting otherwise a pain
+    config(displaylogo = FALSE))
+)
+
+
+```
 
 
 Row 
