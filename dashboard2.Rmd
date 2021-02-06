@@ -481,26 +481,49 @@ ggplotly(weekly.deaths, tooltip = "text") %>%
 
 ### Case Fatality Ratio
 
-```{r}
-weekly<-weekly%>%mutate(cum.deaths=cumsum(n.deaths),cfr=cum.deaths/cum.cases*100)
-cfr_weekly<-weekly%>%
-  ggplot(aes(x = week)) +
-  geom_line(aes(x = week, y = cfr)) +
-  scale_y_continuous(name="case fatality rate (%)", breaks=seq(0,5,0.5))+
-  scale_x_date(date_breaks = "2 weeks") +
-  scale_fill_manual(
-    name = "",
-    values = "#ff6262",
-    labels = "number of deaths") +
+```{r cfr}
+weekly<-weekly%>%
+  mutate(cum.deaths=cumsum(n.deaths),cfr=cum.deaths/cum.cases*100)
+
+deaths%>%
+  mutate(week=lubridate::ceiling_date(Date,unit="week"))%>%
+  filter(Type=="D")%>%
+  group_by(week,Location4)%>%
+  summarise(death=n())%>%
+  filter(!is.na(Location4))%>%rename("region"=Location4)->d_region_week #using data from March-October, compute weekly number of deaths recorded per region
+
+weekly_region%>%
+  filter(!is.na(death))%>%
+  select(week,region,death)%>%
+  rbind(d_region_week)->d_region_week #
+
+weekly_region%>%
+  select(week,region,cases)%>%
+  left_join(d_region_week)->a #join number of deaths and number of cases per region per week since March
+
+a$death<-ifelse(is.na(a$death),0,a$death)
+
+a%>%
+  filter(!is.na(region),region!="Melaky")%>%
+  group_by(region)%>%
+  mutate(cum.deaths=cumsum(death),cum.cases=cumsum(cases),cfr=cum.deaths/cum.cases*100)->a
+
+ggplot(a)+
+  geom_line(aes(x=week,y=cfr,color=region,group=region),alpha=0.2)+
+  geom_smooth(data=weekly,aes(x = week, y = cfr),method="gam",se=FALSE) +
+  scale_y_continuous(name="case fatality rate (%)",limits = c(0,7), breaks=seq(0,10,0.5))+
+  scale_x_date(date_breaks = "2 weeks")+
+  scale_color_manual(values = mycolors, name = "Region")+
   theme(legend.position = "none", 
         panel.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Week ending on",
-       y = "Number of deaths per week")
-
-ggplotly(cfr_weekly) %>% 
-  layout(hovermode = "x") %>%
+  labs(x = "Week ending on")->cfr_reg_plot
+ggplotly(cfr_reg_plot)%>%
+  #layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
+
+
+  
 
 ```
 
