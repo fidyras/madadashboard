@@ -472,7 +472,7 @@ weekly.deaths <- ggplot(data = weekly, aes(x = week, y = n.deaths)) +
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Week ending on",
        y = "Number of deaths per week")
-ggplotly(weekly.deaths, tooltip = "text") %>% 
+ggplotly(weekly.deaths) %>% 
   layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
 
@@ -568,7 +568,9 @@ weekly%>%
     panel.background = element_blank(),
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) -> tests.ts
-ggplotly(tests.ts, tooltip = "text")
+ggplotly(tests.ts)%>%
+  layout(hovermode = "x") %>%
+  config(displaylogo = FALSE)
 ```
 
 
@@ -596,7 +598,7 @@ weekly.pos%>%
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) -> positivity.ts 
   
-ggplotly(positivity.ts, tooltip = "text")
+ggplotly(positivity.ts)
 
 ```
 
