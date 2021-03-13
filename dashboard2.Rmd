@@ -332,7 +332,7 @@ weekly.cases <- ggplot(data = weekly, aes(x = week, y = n.cases)) +
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Week ending on",
        y = "Number of cases per week")
-ggplotly(weekly.cases, tooltip = "text") %>% 
+ggplotly(weekly.cases) %>% 
   layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
 ```
