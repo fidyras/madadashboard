@@ -96,7 +96,7 @@ weekly_region <-
   )
 weekly_region$week<-as.Date(weekly_region$week)
 weekly_region%>%group_by(region)%>%summarise(cases=sum(cases))->region_cumulative #sum of cases by region since March
-weekly<-weekly%>%mutate(cum.cases=cumsum(n.cases))
+weekly<-weekly%>%arrange(week)%>%mutate(cum.cases=cumsum(n.cases))
 weekly$week<-as.Date(weekly$week)
 
 # shapefiles
@@ -267,7 +267,7 @@ valueBox(
 
 valueBox(
   value = format(last(weekly$n.cases), big.mark = ","),
-  caption = paste("Number of cases reported during week ending on",
+  caption = paste("Number of cases reported on",
     format(last(weekly$week), format = "%B %d %Y")),
   icon = "fa-viruses",
   color = "warning"
@@ -282,7 +282,7 @@ valueBox(
 
 valueBox(
   value = format(last(weekly$n.tests), big.mark = ","),
-  caption = paste("Number of tests performed during week ending on",
+  caption = paste("Number of tests performed on",
     format(last(weekly$week), format = "%B %d %Y")),
   icon = "fa-flask",
   color = ifelse(last(weekly$n.tests) == min(weekly$n.tests), "warning", "info")
@@ -324,19 +324,20 @@ Row
 ```{r, warning=FALSE}
 
 weekly.cases <- ggplot(data = weekly, aes(x = week, y = n.cases)) +
-  geom_col(aes(x = week, y = n.cases, fill = "n.cases")) +
+  geom_col(aes(x = week, y = n.cases, fill = frequence)) +
   scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  scale_fill_manual(name = "", values = c("n.cases" = "#1B9E77")) +
-  theme(legend.position = "none", 
+  scale_fill_manual(values=c("#7f2704","#fdd0a2"), name="Legende",labels=c("cas par semaine","cas par jour")) +
+  theme( 
         panel.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Week ending on",
-       y = "Number of cases per week")
-ggplotly(weekly.cases) %>% 
-  layout(hovermode = "x") %>%
-  config(displaylogo = FALSE)
+  labs(x = "Date",
+       y = "Number of cases")
+ggplotly(weekly.cases) 
 ```
 
+
+Row 
+-----------------------------------------------------------------------
 ### `r f.tr("map_of_cases_header")`
 
 `r f.tr("map_of_cases_note")`
@@ -432,7 +433,7 @@ sd%>%
 
 ### `r format(f.tr("time_series_b_header"))` & `r format(f.tr("time_series_c_header"))`
 
-```{r,fig.height = 12}
+```{r}
 bscols(
   filter_select(
       id = "region",
@@ -457,21 +458,18 @@ bscols(
 Row 
 -----------------------------------------------------------------------
 
-### Number of deaths per week
+### Number of deaths
 
 ```{r, warning=FALSE}
 weekly.deaths <- ggplot(data = weekly, aes(x = week, y = n.deaths)) +
-  geom_col(aes(x = week, y = n.deaths, fill = "n.deaths")) +
+  geom_col(aes(x = week, y = n.deaths, fill = frequence)) +
     scale_x_date(date_breaks = "2 weeks") +
-    scale_fill_manual(
-    name = "",
-    values = "#ff6262",
-    labels = "number of deaths") +
-  theme(legend.position = "none", 
+    scale_fill_manual(values=c("#67000d","#fcbba1"), name="Legende",labels=c(hebdomadaire="deces par semaine",quotidien="deces par jour"))  +
+  theme( 
         panel.background = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Week ending on",
-       y = "Number of deaths per week")
+       y = "Number of deaths")
 ggplotly(weekly.deaths) %>% 
   layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
@@ -479,6 +477,8 @@ ggplotly(weekly.deaths) %>%
 ```
 
 
+Row 
+-----------------------------------------------------------------------
 ### Case Fatality Ratio
 
 ```{r cfr}
@@ -545,32 +545,28 @@ In addition, *the final clinical outcome of most of the reported cases is unknow
 Row 
 -----------------------------------------------------------------------
 
-### Number of tests per week
+### Number of tests
 
 
 ```{r}
 weekly%>%
   ggplot(aes(x = week)) +
-  geom_col(aes(y = n.tests, fill = "tests"),
+  geom_col(aes(y = n.tests, fill = frequence),
            size = 0.5,
            alpha = 0.7) +
   scale_x_date(date_breaks = "2 weeks") +
   scale_y_continuous(breaks=seq(0,7000,1000))+
-  scale_fill_manual(
-    name = "",
-    values = c("tests" = "#8d66a1"),
-    labels = "tests"
-  ) +
+  scale_fill_manual(values=c("#3f007d","#bcbddc"), name="Legende",labels=c(hebdomadaire="tests par semaine",quotidien="tests par jour")) +
   labs(x = "Week ending on",
-       y = "Number of tests per week")+
+       y = "Number of tests")+
   theme(
-    legend.position = "none",
     panel.background = element_blank(),
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) -> tests.ts
 ggplotly(tests.ts)%>%
   layout(hovermode = "x") %>%
   config(displaylogo = FALSE)
+
 ```
 
 
