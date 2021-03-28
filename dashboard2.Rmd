@@ -510,7 +510,7 @@ a%>%
 
 ggplot(a)+
   geom_line(aes(x=week,y=cfr,color=region,group=region),alpha=0.2)+
-  geom_smooth(data=weekly,aes(x = week, y = cfr),method="gam",se=FALSE) +
+  geom_line(data=weekly,aes(x = week, y = cfr),method="gam",se=FALSE) +
   scale_y_continuous(name="case fatality rate (%)",limits = c(0,7), breaks=seq(0,10,0.5))+
   scale_x_date(date_breaks = "2 weeks")+
   scale_color_manual(values = mycolors, name = "Region")+
