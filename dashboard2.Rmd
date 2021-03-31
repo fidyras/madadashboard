@@ -316,6 +316,19 @@ gauge(
 ```
 
 
+### case fatality ratio
+
+```{r}
+
+valueBox(
+  value = paste(round(100 * sum(weekly$n.deaths) / sum(weekly$n.cases), 2), "%"),
+  caption = f.tr("cfr_caption"),
+  icon = "fa-virus",
+  color = "danger"
+)
+
+```
+
 
 Row 
 -----------------------------------------------------------------------
@@ -502,7 +515,7 @@ Row
 
 ```{r cfr}
 weekly<-weekly%>%
-  mutate(cum.deaths=cumsum(n.deaths),cfr=cum.deaths/cum.cases*100)
+  mutate(cum.deaths=cumsum(n.deaths),cfr=round(cum.deaths/cum.cases*100,2))
 
 deaths%>%
   mutate(week=lubridate::ceiling_date(Date,unit="week"))%>%
@@ -525,7 +538,7 @@ a$death<-ifelse(is.na(a$death),0,a$death)
 a%>%
   filter(!is.na(region),region!="Melaky")%>%
   group_by(region)%>%
-  mutate(cum.deaths=cumsum(death),cum.cases=cumsum(cases),cfr=cum.deaths/cum.cases*100)->a
+  mutate(cum.deaths=cumsum(death),cum.cases=cumsum(cases),cfr=round(cum.deaths/cum.cases,2)*100)->a
 
 ggplot(a)+
   geom_line(aes(x=week,y=cfr,color=region,group=region),alpha=0.2)+
