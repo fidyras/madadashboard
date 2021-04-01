@@ -316,18 +316,7 @@ gauge(
 ```
 
 
-### case fatality ratio
 
-```{r}
-
-valueBox(
-  value = paste(round(100 * sum(weekly$n.deaths) / sum(weekly$n.cases), 2), "%"),
-  caption = f.tr("cfr_caption"),
-  icon = "fa-virus",
-  color = "danger"
-)
-
-```
 
 
 Row 
@@ -508,6 +497,20 @@ The CFR can help us understand the severity of the disease in confirmed cases ho
 
 In addition, *the final clinical outcome of most of the reported cases is unknown*. Therefore the tally of deaths over the confirmed cases might underestimate the true case fatality ratio.
 
+### case fatality ratio
+
+```{r}
+
+valueBox(
+  value = paste(round(100 * sum(weekly$n.deaths) / sum(weekly$n.cases), 2), "%"),
+  caption = f.tr("cfr_caption"),
+  icon = "fa-virus",
+  color = "danger"
+)
+
+```
+
+
 
 Row 
 -----------------------------------------------------------------------
@@ -515,7 +518,7 @@ Row
 
 ```{r cfr}
 weekly<-weekly%>%
-  mutate(cum.deaths=cumsum(n.deaths),cfr=round(cum.deaths/cum.cases*100,2))
+  mutate(cum.deaths=cumsum(n.deaths),cfr=round(cum.deaths/cum.cases*100,4))
 
 deaths%>%
   mutate(week=lubridate::ceiling_date(Date,unit="week"))%>%
@@ -538,7 +541,7 @@ a$death<-ifelse(is.na(a$death),0,a$death)
 a%>%
   filter(!is.na(region),region!="Melaky")%>%
   group_by(region)%>%
-  mutate(cum.deaths=cumsum(death),cum.cases=cumsum(cases),cfr=round(cum.deaths/cum.cases,2)*100)->a
+  mutate(cum.deaths=cumsum(death),cum.cases=cumsum(cases),cfr=round(cum.deaths/cum.cases,4)*100)->a
 
 ggplot(a)+
   geom_line(aes(x=week,y=cfr,color=region,group=region),alpha=0.2)+
