@@ -154,7 +154,7 @@ Sidebar {.sidebar}
 \
 
 ```{r, results='asis', verbatim=TRUE}
-date_updated <- format(last(cases$week), format = "%B %d %Y") # any inline stats you need ahead of time!
+date_updated <- format(last(cases$Date), format = "%B %d %Y") # any inline stats you need ahead of time!
 ```
 
 `r f.tr("sidebar_part_1")`
