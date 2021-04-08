@@ -115,7 +115,7 @@ mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
 # Cases by region
 cases_region$week<-as.Date(cases_region$week)
 cases_region$region[is.na(cases_region$region)] = "unspecified"
-cases_region%>%group_by(region)%>%summarise(cases=sum(cases),deaths=sum(death))->region_cumulative #sum of cases by region since March
+cases_region%>%group_by(region)%>%summarise(cases=sum(cases),deaths=sum(death,na.rm=TRUE))->region_cumulative #sum of cases by region since March
 cases_region$death[which(is.na(cases_region$death))]<-0
 cases_region$region <- mdg2$NAME[amatch(cases_region$region, mdg2$NAME, maxDist = 6)]
 cases_region$region[is.na(cases_region$region)] = "unspecified"
@@ -870,6 +870,9 @@ Here we leverage data collected as part of this dashboard and use data collected
 \
 \
 \
+
+
+
 Row 
 -----------------------------------------------------------------------
 
@@ -887,13 +890,11 @@ valueBox(format(zoky$n,big.mark=" "),
 
 ```
 
+
 Row 
 -----------------------------------------------------------------------
 
 ### **Mapping region with large number of older individuals ** 
-
-
-
 
 
 ```{r}
@@ -909,7 +910,7 @@ labels <- sprintf(
   mdg2$n60,
   mdg2$prop60
 ) %>% lapply(htmltools::HTML)
-map<-leaflet()  %>%
+map_old<-leaflet()  %>%
   addTiles() %>%
   addPolygons(
     data = mdg2,
@@ -937,13 +938,64 @@ map<-leaflet()  %>%
     "topleft",
     pal = pal,
     values = bins)
-map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+map_old %>% addProviderTiles(providers$Esri.WorldStreetMap)
 
 
 
 
 ```
 
+
+### **Mapping region with most cases ** 
+
+
+```{r}
+
+
+
+mada_regions <-
+  left_join(mdg2, region_cumulative, by = c("NAME" = "region"))
+bins <- round(exp(pretty(log(region_cumulative$cases), n = 10)), 0) # logged breaks
+pal <- colorBin("YlOrRd", domain = mada_regions$cases, bins = bins)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Cases: %i <br/>",
+  mada_regions$NAME,
+  mada_regions$cases
+) %>% lapply(htmltools::HTML)
+map <- leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mada_regions,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(cases),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "topleft",
+    pal = pal,
+    values = bins,
+    title = f.tr("map_of_cases_legend_caption")
+  )
+map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+
+
+```
 
 Row {data-height=400}
 -------------------------------
@@ -952,16 +1004,22 @@ Row {data-height=400}
 
 ```{r}
 
+mdg2%>%
+  mutate(age_cat=ifelse(n60>median(n60),2,1))%>%
+  mutate(cases_cat=ifelse(cases>median(cases),2,1))%>%
+  mutate(category=as.factor(cases_cat+age_cat))->mdg2
+
+
 
 library(gghighlight)
 my_breaks <- c(0,2,10,40,100,200)
 ggplot(pop_age_Region,aes(x=cases,y=n60))+
-  geom_point(aes(size=pop,color=deaths))+
+  geom_point(aes(size=pop,color=category))+
   scale_y_continuous(trans="log10")+
   scale_x_continuous(trans="log10")+
   geom_text(aes(label=Region),hjust=0, vjust=0)+
   #gghighlight(cases>median(cases),label_key = NAME)+
-  scale_color_viridis_c(option="C",name="Number of deaths",trans="log10",breaks=my_breaks,labels=my_breaks)+
+  #scale_color_viridis_c(option="C",name="Number of deaths",trans="log10",breaks=my_breaks,labels=my_breaks)+
   scale_size(name="Population",range=c(1,8))+
   geom_hline(yintercept=median(pop_age_Region$n60),linetype="dashed",colour="grey70")+
   geom_vline(xintercept=median(pop_age_Region$cases),linetype="dashed",colour="grey70")+
