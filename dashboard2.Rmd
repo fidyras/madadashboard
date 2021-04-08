@@ -868,4 +868,17 @@ mdg2<-st_as_sf(mdg2)
 
 ```
 
+```{r}
+
+ pop %>%
+  filter(Age>59) %>%
+  summarise(n=sum(pop))->zoky
+ 
+valueBox(format(zoky$n,big.mark=" "),
+         caption = "Number of individuals \n >60 years old in Madagascar",
+         icon = "fa-persons",
+         color = "info")
+
+```
+
 
