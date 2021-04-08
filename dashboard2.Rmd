@@ -827,3 +827,45 @@ afr_cdc_df <- tibble::as_tibble(afr_cdc$features$attributes)
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
 ```
+
+
+Vaccine prioritization
+===================================
+  
+```{r map setup, echo=FALSE, eval=TRUE,warning=FALSE,message=FALSE}
+options(scipen = 10)
+library(tidyverse)
+library(sf)
+library(stringdist)
+library(patchwork)
+library(ggplot2)
+library(sf)
+
+
+pop<-read_sheet(
+  "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+  sheet = 10
+)
+pop%>%select(c(1,2,"pop"=5))->pop
+pop$Region<-tolower(pop$Region)
+pop$Region<-mdg2$NAME[amatch(pop$Region, mdg2$NAME, maxDist = 6)]
+
+
+pop%>%
+  group_by(Region)%>%
+  mutate(pop_Reg=sum(pop),prop=pop/pop_Reg)%>%
+  filter(Age>59)%>%
+  group_by(Region)%>%
+  summarise(n60=sum(pop),prop60=sum(prop),pop=unique(pop_Reg))%>%ungroup()->pop_age_Region
+
+
+region_cumulative%>%
+  filter(region!="unspecified")%>%
+  rename(Region=region)%>%
+  left_join(pop_age_Region)->pop_age_Region
+mdg2<-mdg2%>%left_join(pop_age_Region,by=c("NAME"="Region"))
+mdg2<-st_as_sf(mdg2)
+
+```
+
+
