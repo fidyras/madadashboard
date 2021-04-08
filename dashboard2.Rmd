@@ -115,7 +115,7 @@ mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
 # Cases by region
 cases_region$week<-as.Date(cases_region$week)
 cases_region$region[is.na(cases_region$region)] = "unspecified"
-cases_region%>%group_by(region)%>%summarise(cases=sum(cases))->region_cumulative #sum of cases by region since March
+cases_region%>%group_by(region)%>%summarise(cases=sum(cases),deaths=sum(death))->region_cumulative #sum of cases by region since March
 cases_region$death[which(is.na(cases_region$death))]<-0
 cases_region$region <- mdg2$NAME[amatch(cases_region$region, mdg2$NAME, maxDist = 6)]
 cases_region$region[is.na(cases_region$region)] = "unspecified"
@@ -444,7 +444,7 @@ Row
 
 ### Case Fatality Ratio
 
-Through `r last(cases$week)`, Madagascar has officially registered `r format(last(cases$cum.cases),scientific=FALSE)` cases and `r format(last(cases$cum.deaths),scientific=FALSE)` deaths.
+Through `r last(cases$Date)`, Madagascar has officially registered `r format(last(cases$cases.cumsum),scientific=FALSE)` cases and `r format(last(cases$deaths.cumsum),scientific=FALSE)` deaths.
 
 
 
@@ -810,6 +810,168 @@ Row {data-height=400}
 * Forecasts of R~t~ at low/zero case counts have wide credible intervals and low confidence.
 
 * There are a number of limitations and uncertainties in these methods, many of which are reviewed [here](https://www.medrxiv.org/content/10.1101/2020.06.18.20134858v2?rss=1). 
+
+
+
+Vaccine prioritization
+===================================
+
+```{r map setup, echo=FALSE, eval=TRUE,warning=FALSE,message=FALSE}
+options(scipen = 10)
+library(tidyverse)
+library(sf)
+library(stringdist)
+library(patchwork)
+library(ggplot2)
+library(sf)
+
+
+pop<-read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 10
+  )
+pop%>%select(c(1,2,"pop"=5))->pop
+pop$Region<-tolower(pop$Region)
+pop$Region<-mdg2$NAME[amatch(pop$Region, mdg2$NAME, maxDist = 6)]
+
+
+pop%>%
+  group_by(Region)%>%
+  mutate(pop_Reg=sum(pop),prop=pop/pop_Reg)%>%
+  filter(Age>59)%>%
+  group_by(Region)%>%
+  summarise(n60=sum(pop),prop60=sum(prop),pop=unique(pop_Reg))%>%ungroup()->pop_age_Region
+
+
+region_cumulative%>%
+  filter(region!="unspecified")%>%
+  rename(Region=region)%>%
+  left_join(pop_age_Region)->pop_age_Region
+mdg2<-mdg2%>%left_join(pop_age_Region,by=c("NAME"="Region"))
+mdg2<-st_as_sf(mdg2)
+
+```
+
+
+**Prioritizing vaccination** {.sidebar}
+-----------------------------------------------------------------------
+
+\
+\
+In March 2021, Madagascar has initiated the necessary steps to re-join the COVAX initiative led by WHO...
+When vaccines will arrive in Madagascar, they will probably be in limited supply and will require prioritization of available doses to achieve the best possible protection for the population.
+Several lines of evidence and GAVI-COVAX rules show that priority should be given to healthcare workers and then to older adults.
+Collectively these research indicate that vaccinating oldest individuals first saves the most lives and maximises years of remaining life expectancy and give further support to announced priority rankings.
+\
+\
+Here we leverage data collected as part of this dashboard and use data collected by the INSTAT to potentially guide vaccination and vaccine education efforts in Madagascar based on a narrow but central aspect of vaccination prioritization: Distribution of age and cases in the Malagasy population.
+
+ 
+\
+\
+\
+Row 
+-----------------------------------------------------------------------
+
+### **Elderly population of Madagascar ** 
+
+```{r}
+pop %>%
+  filter(Age>59) %>%
+  summarise(n=sum(pop))->zoky
+
+valueBox(format(zoky$n,big.mark=" "),
+         caption = "Number of individuals \n >60 years old in Madagascar",
+         icon = "fa-persons",
+         color = "info")
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### **Mapping region with large number of older individuals ** 
+
+
+
+
+
+```{r}
+
+
+
+library(leaflet)
+bins <- pretty(mdg2$prop60)
+pal <- colorBin("YlGnBu", domain = mdg2$prop60)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Population of elderly: %i <br/>",
+  mdg2$NAME,
+  mdg2$n60,
+  mdg2$prop60
+) %>% lapply(htmltools::HTML)
+map<-leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mdg2,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(prop60),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "topleft",
+    pal = pal,
+    values = bins)
+map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+
+
+
+
+```
+
+
+Row {data-height=400}
+-------------------------------
+
+### **Regions with high case numbers and large population of Older individuals** 
+
+```{r}
+
+
+library(gghighlight)
+my_breaks <- c(0,2,10,40,100,200)
+ggplot(pop_age_Region,aes(x=cases,y=n60))+
+  geom_point(aes(size=pop,color=deaths))+
+  scale_y_continuous(trans="log10")+
+  scale_x_continuous(trans="log10")+
+  geom_text(aes(label=Region),hjust=0, vjust=0)+
+  #gghighlight(cases>median(cases),label_key = NAME)+
+  scale_color_viridis_c(option="C",name="Number of deaths",trans="log10",breaks=my_breaks,labels=my_breaks)+
+  scale_size(name="Population",range=c(1,8))+
+  geom_hline(yintercept=median(pop_age_Region$n60),linetype="dashed",colour="grey70")+
+  geom_vline(xintercept=median(pop_age_Region$cases),linetype="dashed",colour="grey70")+
+  labs(x="Number of cases (log scale)",y="Number of over 60 years old (log scale)")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))->fig1
+
+ggplotly(fig1)
+
+```
 
 ```{r comparison}
 # starting code for comparing Mada to other countries
