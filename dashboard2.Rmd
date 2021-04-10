@@ -563,6 +563,7 @@ cases%>%
            size = 0.5,
            alpha = 0.7) +
   geom_line(aes(y = positivity.mov.avg, color = "positivity.mov.avg"), size = 1) +
+  scale_y_continuous(labels=percent)+
   scale_x_date(date_breaks = "2 weeks",
                limits = c(as.Date("2020-05-18"), Sys.Date())) +
   labs(x = f.tr("daily_pos_xlab"),
