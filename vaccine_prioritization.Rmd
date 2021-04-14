@@ -1,0 +1,859 @@
+---
+title: "COVID-19 Vaccine Prioritization in Madagascar"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(googlesheets4)
+library(shiny)
+library(sf)
+library(leaflet)
+library(tidyverse)
+library(plotly)
+library(lubridate)
+library(dygraphs)
+library(zoo)
+library(forecast)
+library(stringdist)
+library(glue)
+library(ggthemes)
+library(scales)
+library(RColorBrewer)
+require(EpiEstim)
+require(dplyr)
+require(RCurl)
+require(reshape2)
+require(purrr)
+require(lubridate)
+library(crosstalk)
+library(tidyverse)
+library(sf)
+library(stringdist)
+library(patchwork)
+library(jsonlite)
+```
+
+```{r}
+# pull data from google sheets & clean
+gs4_deauth()
+
+# shapefiles
+mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
+
+cases <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 8
+  )
+
+cases_region <-
+  read_sheet(
+    "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+    sheet = 9
+  )
+options(scipen = 10)
+
+
+pop<-read_sheet(
+  "https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit#gid=0",
+  sheet = 10
+)
+
+
+
+pop%>%select(c(1,2,"pop"=5))->pop
+pop$Region<-tolower(pop$Region)
+pop$Region<-mdg2$NAME[amatch(pop$Region, mdg2$NAME, maxDist = 6)]
+
+
+facilities<-read.csv("whohealth.csv")
+facilities%>%filter(Country=="Madagascar")%>%rename("Region"=Admin1)->facilities
+facilities$Region<-mdg2$NAME[amatch(facilities$Region, mdg2$NAME, maxDist = 6)]
+
+hcw<-read.csv("HCW_Reg.csv")
+hcw$Region<-tolower(hcw$Region)
+hcw$Region<-mdg2$NAME[amatch(hcw$Region, mdg2$NAME, maxDist = 6)]
+
+
+cases$Date<-as.Date(cases$week)
+all.dates<-data.frame(list(Date=seq(min(cases$Date),max(cases$Date),by="day")))
+cases<-merge(all.dates, cases, all=T)
+cases$n.cases[which(is.na(cases$n.cases))]<-0
+cases$n.deaths[which(is.na(cases$n.deaths))]<-0
+cases%>%arrange(Date)%>%select(Date,"cases"=n.cases,"deaths"=n.deaths,"tests"=n.tests,"total.tests"=Global.total.test)%>%
+  mutate(cases.cumsum = cumsum(cases),
+         deaths.cumsum = cumsum(deaths),
+         positivity=round((cases/tests),4)) %>% #compute cumulative number of cases per region
+  mutate(cases.mov.avg = rollmeanr(cases, 7, fill = "extend"),
+         deaths.mov.avg=rollmeanr(deaths, 7, fill = "extend"),
+         positivity.mov.avg=rollmeanr(positivity, 7, fill = NA))->cases
+
+
+
+
+# Cases by region
+cases_region$week<-as.Date(cases_region$week)
+cases_region$region[is.na(cases_region$region)] = "unspecified"
+cases_region%>%group_by(region)%>%summarise(cases=sum(cases),deaths=sum(death,na.rm=TRUE))->region_cumulative #sum of cases by region since March
+
+pop%>%
+  group_by(Region)%>%
+  mutate(pop_Reg=sum(pop),prop=pop/pop_Reg)%>%
+  filter(Age>59)%>%
+  group_by(Region)%>%
+  summarise(n60=sum(pop),prop60=sum(prop),pop=unique(pop_Reg))%>%ungroup()->pop_age_Region
+
+region_cumulative%>%
+  filter(region!="unspecified")%>%
+  rename(Region=region)%>%
+  left_join(pop_age_Region)->pop_age_Region
+
+
+mdg2<-mdg2%>%left_join(pop_age_Region,by=c("NAME"="Region"))
+
+cases_region$death[which(is.na(cases_region$death))]<-0
+cases_region$region <- mdg2$NAME[amatch(cases_region$region, mdg2$NAME, maxDist = 6)]
+cases_region$region[is.na(cases_region$region)] = "unspecified"
+
+cases_region%>%
+  rename("Date"=week)%>%
+  arrange(Date)%>%
+  group_by(region) %>%
+  mutate(cases.cumsum = cumsum(cases),
+         deaths.cumsum=cumsum(death)) %>% #compute cumulative number of cases per region
+  mutate(cases.mov.avg = rollmeanr(cases, 7, fill = "extend"),
+         death.mov.avg = rollmeanr(death, 7, fill = "extend"))%>%ungroup()-> cases_region #compute 7 day moving average per region
+
+
+
+facilities%>%group_by(Region)%>%summarise(HCF=n())->a
+mdg2%>%left_join(a,by=c("NAME"="Region"))->mdg2
+
+
+
+mdg2%>%left_join(hcw,by=c("NAME"="Region"))->mdg2
+mdg2<-st_as_sf(mdg2)
+mdg2<-rmapshaper::ms_simplify(mdg2, keep = 0.15, keep_shapes = T)
+
+```
+
+COVID in Madagascar
+=========================================================
+
+First case of COVID-19 pandemic were reported in Madagascar on March 23, 2020. Since then, the Government has started and promoted a number of pharmaceutical and non-pharmaceutical interventions to limit the spread of the disease on the Island. As of today, Madagascar is experiencing a "second wave" of infections averaging at `r round(last(cases$cases.mov.avg),2)` cases per day over the previous 7 days.
+
+Row 
+-----------------------------------------------------------------------
+
+### cases
+
+```{r}
+valueBox(
+  value = format(sum(cases$cases,na.rm=TRUE), big.mark = ","),
+  caption = paste("total number of cases until",
+                  format(last(cases$Date), format = "%B %d %Y")),
+  icon = "fa-ambulance",
+  color = "info"
+)
+```
+
+### deaths
+
+```{r}
+
+valueBox(
+  value = sum(cases$deaths, na.rm = TRUE),
+  caption = paste("total number of deaths recorded until",
+                  format(last(cases$Date), format = "%B %d %Y")),
+  color = "danger",
+  icon = "fa-heartbeat"
+)
+
+```
+
+
+Row 
+-----------------------------------------------------------------------
+
+### COVID cases in Madagascar 
+
+```{r}
+cases<-read.csv("cases.csv")
+cases$Date<-as.Date((cases$Date))
+daily.cases <- ggplot(data = cases, aes(x = Date, y = cases.mov.avg)) +
+  geom_col(aes(x = Date, y = cases, fill = Type),
+           position = "dodge",
+           alpha = 0.4) +
+  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  geom_line(aes(x = Date, y = cases.mov.avg, color = Type),
+            size = 1) +
+  #scale_fill_manual(name = "", values = c("cases" = "#1B9E77")) +
+  #scale_color_manual(name = "", values = c("cases.mov.avg" = "#0d4f3b")) + # matched moving avg cols to bar cols
+  theme(
+        panel.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, size=14, face= "bold"),
+        axis.text.y = element_text( hjust = 1, size=14, face= "bold")) +
+  labs(x = "Date",y = "Number of cases")
+
+ggplotly(daily.cases, tooltip = "text") %>% 
+  #layout(hovermode = "x") %>%
+  config(displaylogo = FALSE)
+
+```
+
+### Deaths per day
+
+```{r, warning=FALSE}
+
+cases %>%
+  ggplot(aes(x = Date)) +
+  geom_col(aes(y = deaths, fill = "deaths")) +
+  geom_line(aes(y = deaths.mov.avg, color = "deaths.mov.avg"), size = 1) +
+  labs(x = "Date",
+       y = "Number of deaths") +
+  scale_x_date(date_breaks = "2 weeks") +
+  scale_y_continuous() +
+  scale_fill_manual(
+    name = "",
+    values = c("deaths" = "#ff6262"),
+    labels = "number of deaths"
+  ) +
+  scale_color_manual(name = "",
+                     values = c("deaths.mov.avg" = "#9d0000")) +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )->deaths_day
+
+ggplotly(deaths_day)%>%
+  config(displaylogo = FALSE)
+
+```
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Map of cases per region
+
+```{r}
+
+bins <- round(exp(pretty(log(region_cumulative$cases), n = 10)), 0) # logged breaks
+pal <- colorBin("YlOrRd", domain = mdg2$cases, bins = bins)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Cases: %i <br/>",
+  mdg2$NAME,
+  mdg2$cases
+) %>% lapply(htmltools::HTML)
+map <- leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mdg2,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(cases),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "topleft",
+    pal = pal,
+    values = bins,
+    title = "cases per region"
+  )
+map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+
+```
+
+### Map of deaths per region
+
+```{r}
+
+bins <- round(exp(pretty(log(region_cumulative$deaths), n = 10)), 0) # logged breaks
+pal <- colorBin("Reds", domain = mdg2$deaths, bins = bins)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Cases: %i <br/>",
+  mdg2$NAME,
+  mdg2$deaths
+) %>% lapply(htmltools::HTML)
+map <- leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mdg2,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(deaths),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "topleft",
+    pal = pal,
+    values = bins,
+    title = "cases per region"
+  )
+map %>% addProviderTiles(providers$Esri.WorldStreetMap)
+
+```
+
+
+Demography (INSTAT census 2018)
+========================================
+
+If an individual were to be infected by SARS CoV 2, the single best predictor of death and severity of the clinical disease is Age of the individual. Therefore, age also plays an important role in the prioritization efforts of any available dose of vaccine. Here we represent data obtained from INSTAT through the 2018 census (RGPH-3 2018).
+
+
+Row 
+-----------------------------------------------------------------------
+
+
+### Population
+
+```{r}
+
+
+pop %>%
+#  filter(Age>59) %>%
+  summarise(n=sum(pop))->Malagasy
+ 
+valueBox(format(Malagasy$n,big.mark=" "),
+         caption = "Number of people in Madagascar",
+         icon = "fa-persons",
+         color = "info"
+         )
+
+```
+
+
+### Elderly
+
+```{r}
+
+pop %>%
+  filter(Age>59) %>%
+  summarise(n=sum(pop))->zoky
+
+valueBox(format(zoky$n,big.mark=" "),
+         caption = "Number of individuals \n >60 years old in Madagascar",
+         icon = "fa-persons",
+         color = "info"
+         )
+
+```
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Population
+
+```{r}
+
+ggplot(mdg2)+
+  geom_sf(aes(fill=pop))+
+  theme_void()+
+  scale_fill_viridis_b(option="B",name="Population per region")+
+  labs(title="Population")
+
+
+```
+
+
+### Elderly (>60 years old)
+```{r}
+
+ggplot(mdg2)+
+  geom_sf(aes(fill=n60))+
+  theme_void()+
+  scale_fill_viridis_b(option="B",name="Number of elderly people")+
+  labs(title="Elderly (>60 years old) population per region ")
+
+
+```
+
+
+Row 
+-----------------------------------------------------------------------
+
+
+```{r}
+pop$age_cat <- cut(as.numeric(round((pop$Age))),
+                  c(0,10,20,30,40,50,60, Inf),
+                  right = FALSE,
+                  ordered_result = TRUE)
+
+pop%>%
+  group_by(Region,age_cat)%>%
+  summarise(pop=sum(pop))%>%mutate(freq_pop = pop / sum(pop))->b
+b%>%filter(Region=="Analamanga"|Region=="Atsinanana"|Region=="Alaotra-Mangoro"|Region=="Boeny"|Region=="Diana")%>%
+  ggplot()+
+  geom_col(aes(x=age_cat,y=freq_pop,fill=Region),position = "dodge")+
+  coord_flip()+
+  scale_y_continuous(labels = percent,limits = c(0,0.4))+
+  scale_fill_brewer(palette="Set2")+
+  labs(title="Age structure of populations in selected regions of Madagascar",subtitle = "Most affected Regions",y="Frequency",x="Age category")->agestr1
+
+b%>%filter(Region=="Melaky"|Region=="Atsimo-Atsinanana"|Region=="Androy"|Region=="Itasy"|Region=="Betsiboka")%>%
+  ggplot()+
+  geom_col(aes(x=age_cat,y=freq_pop,fill=Region),position = "dodge")+
+  coord_flip()+
+  scale_y_continuous(labels = percent,limits = c(0,0.4))+
+  scale_fill_brewer(palette="Dark2")+
+  labs(title="Age structure of populations in selected regions of Madagascar",subtitle = "Least affected Regions",y="Frequency",x="Age category")->agestr2
+
+
+
+
+```
+
+
+### Most affected regions 
+
+```{r}
+
+agestr1
+
+```
+
+### Least affected regions
+```{r}
+
+agestr2
+
+```
+
+
+Healthcare
+==================================================
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Healthcare facilities
+
+
+```{r}
+
+mdg2 %>%
+  summarise(n=sum(HCF))->HCF
+ 
+valueBox(format(HCF$n,big.mark=" "),
+         caption = "Number of healthcare facilities in Madagascar \n (source WHO 2019)",
+         icon = "fa-hospital",
+         color = "info"
+         )
+
+```
+
+
+### healthcare workers
+
+```{r}
+
+hcw %>%
+  summarise(n=sum(TOTAL))->HCW
+
+valueBox(format(HCW$n,big.mark=" "),
+         caption = "Number of healthcare workers in Madagascar \n (including administrative personnel)",
+         icon = "fa-stethoscope",
+         color = "info"
+         )
+
+
+```
+
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Healthcare facilities
+
+```{r}
+
+ggplot(mdg2)+
+  geom_point(data=facilities,aes(x=Long,y=Lat))+
+  geom_sf(aes(fill=HCF/pop*10000))+
+  geom_point(data=facilities,aes(x=Long,y=Lat),alpha=0.5,size=0.5)+
+  theme_void()+
+  scale_fill_viridis_c(option="A",name="Number of healthcare facilities \n (per 10 000 inhabitants)")+
+  labs(title="Healthcare facilities in Madagascar")
+
+
+```
+
+### Healthcare workers
+
+```{r}
+
+ggplot(mdg2)+
+  geom_sf(aes(fill=(MEDICAL+PARAMEDICAL)/pop* 10000))+
+  theme_void()+
+  scale_fill_viridis_b(option="B",name="Number of healthcare workers \n (per 10 000 inhabitants)")+
+  labs(title="Healthcare workers (medical+paramedical) in Madagascar")
+
+
+```
+
+
+Prioritization maps
+============================================
+
+Row 
+-----------------------------------------------------------------------
+
+### Objective 1: Prioritization maps
+
+On April 3rd 2021, Madagascar initiated the necessary steps to re-join COVAX. COVAX is a WHO led initiative to promote vaccine access equity to LMIC and is set up to provide enough doses to immunize x% of the population.
+
+As in other countries, vaccine distribution and rollout will require prioritization of available doses to achieve the best possible protection for the population.
+Several lines of evidence suggest that priority should be given to healthcare workers and then to older adults which gives further support to announced priority rankings
+
+
+***UNICEF's priority is to obtain maps based on available data to prioritize mobilization of healthcare workers in preparation for vaccination.***
+
+***Vaccination goes to healthcare workers and army first then should be prioritized in region with older population and with most cases***. Following maps take into account the number of cases (or deaths) reported in the region and the proportion of individuals over 60 years old living in the region, providing a coarse visualization of priority regions.
+
+However, number of cases reported in each region is contingent upon the number of tests performed in the region, which is unknown.
+
+
+***Further modeling work*** may improve prioritization and provide quantitative estimates of the effects of each strategy onto the mortality rates.
+
+
+
+```{r}
+
+
+library(biscale)
+
+data<-bi_class(mdg2, x= cases, y=prop60,dim=3)
+map_cases<-ggplot() +
+  geom_sf(data = data, mapping = aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+  bi_scale_fill(pal = "GrPink", dim = 3)+
+  #labs(title = "COVID Cases and proportion of elderly people in Madagascar")+
+  bi_theme()
+
+legend_cases <- bi_legend(pal = "GrPink",
+                    dim = 3,
+                    xlab = "More cases ",
+                    ylab = "Higher % older people",
+                    size = 8)
+library(cowplot)
+Cases_old <- ggdraw() +
+  draw_plot(map_cases, 0, 0, 1, 1) +
+  draw_plot(legend_cases, 0.1, .65, 0.3, 0.3)
+
+
+deaths<-bi_class(mdg2, x= deaths, y=prop60,dim=3)
+map_deaths<-ggplot() +
+  geom_sf(data = deaths, mapping = aes(fill = bi_class), color = "white", size = 0.1, show.legend = FALSE) +
+  bi_scale_fill(pal = "DkViolet", dim = 3)+
+  #labs(title = "COVID deaths and proportion of elderly people in Madagascar")+
+  bi_theme()
+
+legend_cases <- bi_legend(pal = "DkViolet",
+                    dim = 3,
+                    xlab = "More deaths ",
+                    ylab = "Higher % older people",
+                    size = 8)
+library(cowplot)
+deaths_old <- ggdraw() +
+  draw_plot(map_deaths, 0, 0, 1, 1) +
+  draw_plot(legend_cases, 0.1, .65, 0.3, 0.3)
+
+
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Cases (bivariate)
+
+```{r}
+
+Cases_old
+
+```
+
+
+### Deaths (bivariate)
+
+```{r}
+
+deaths_old
+
+```
+
+
+Row 
+-----------------------------------------------------------------------
+
+
+```{r}
+mdg2%>%
+  mutate(age_cat=rank(n60))%>%
+  mutate(cases_cat=rank(cases))%>%
+  mutate(score=cases_cat+age_cat)->mdg2
+
+priority_map_c<-mdg2%>%  
+  ggplot()+
+  geom_sf(aes(fill=score))+
+  theme_void()+
+  scale_fill_viridis_b(option="D",name="Prioritization score")
+
+priority_quad_c<-ggplot(mdg2,aes(x=cases,y=n60))+
+  geom_point(aes(size=pop, color=cut(score,seq(0,50,5))))+
+  scale_y_continuous(trans="log10")+
+  scale_x_continuous(trans="log10")+
+  geom_text(aes(label=NAME),hjust=0, vjust=0)+
+  #gghighlight(category>median(category),label_key = NAME)+
+  scale_color_viridis_d(option="D",name="Prioritization score",guide=NULL)+
+  scale_size(name="Population",range=c(1,8),guide = NULL)+
+  geom_hline(yintercept=median(pop_age_Region$n60),linetype="dashed",colour="grey70")+
+  geom_vline(xintercept=median(pop_age_Region$cases),linetype="dashed",colour="grey70")+
+  labs(x="Number of cases (log scale)",y="Number of over 60 years old (log scale)")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
+mdg2%>%
+  mutate(age_cat=rank(n60))%>%
+  mutate(deaths_cat=rank(deaths))%>%
+  mutate(deathscore=deaths_cat+age_cat)->mdg2
+
+priority_map_d<-mdg2%>%  
+  ggplot()+
+  geom_sf(aes(fill=deathscore))+
+  theme_void()+
+  scale_fill_viridis_b(option="C",name="Prioritization score")
+
+library(gghighlight)
+priority_quad_d<-ggplot(mdg2,aes(x=deaths,y=prop60))+
+  geom_point(aes(size=pop, color=cut(deathscore,seq(0,50,5))))+
+  scale_y_continuous(trans="log10")+
+  scale_x_continuous(trans="log10")+
+  geom_text(aes(label=NAME),hjust=0, vjust=0)+
+  #gghighlight(category>median(category),label_key = NAME)+
+  scale_color_viridis_d(option="C",name="Prioritization score",guide=NULL)+
+  scale_size(name="Population",range=c(1,8),guide = NULL)+
+  geom_hline(yintercept=median(pop_age_Region$prop60),linetype="dashed",colour="grey70")+
+  geom_vline(xintercept=median(pop_age_Region$deaths),linetype="dashed",colour="grey70")+
+  labs(x="Number of deaths (log scale)",y="Number of over 60 years old (log scale)")+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
+```
+
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Scoring quadrant cases
+
+```{r}
+
+priority_quad_c
+```
+
+
+### Scoring quadrant deaths
+
+```{r}
+
+priority_quad_d
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+
+
+### Score map cases
+
+```{r}
+
+priority_map_c
+```
+
+
+
+### Score map deaths
+
+```{r}
+priority_map_d
+
+```
+
+
+
+Modeling - Next steps
+============================
+
+### Modeling strategies
+
+We will build a mathematical model (SEIR) to assess the reduction of lives lost if available doses of vaccines are distributed to regions by prioritizing:
+
+- Population size (region with larger population receive more doses)
+- Number of 60 years old residing in the region
+- Number of cases detected in the region
+
+- No prioritization : Sharing vaccines equally between 22 regions.
+
+This will allow to explicitly compare different prioritization strategies
+In this model, everybody is susceptible unless they are, exposed, infected or were previously infected or vaccinated. We will simulate the spread of the disease through a year and count the cumulative death counts of each scenario after the one year simulation that we will compare to a scenario in which vaccines are unavailable.
+
+In each prioritization strategy vaccine allocation per region follows proportion per region.
+(e.g. Analamanga 14% of population, 18% of elderly, 66% of cases, 42% of deaths => distribution of doses will follow the same of repartition) 
+
+=> Maybe we could build *a shiny app where users can set the number of vaccines available?*
+
+Vaccine administration within the region follows age priority in each region, first elderly then next age group etc.
+we also assume that vaccines are 100% effective at reducing mortality from COVID-19 and preventing further infections
+
+
+**Vary national acceptance rate in elderly population**
+
+We can include a chart that represents the reduction of mortality as a function of vaccine acceptance ratio but it would be useful to have survey data on vaccine acceptance rate in different regions and age classes.
+
+
+
+**Address Unequal testing efforts between regions & under testing in general?** 
+
+Analamanga region has reported (several degrees of magnitude) more cases than others which may suggest that testing is more prevalent in Analamanga region than others. This potential heterogeneity in testing capacities between regions may affect number of cases and prioritization of regions (e.g.: silent outbreaks in regions where testing is limited)
+
+**Include a shift in IFR**
+What if current variants is lethal to populations at a younger age (e.g.: 55 years old compared to 60 years old) or disease affects younger population due to comorbidities (cf Rice et al., 2021)? Modeling may provide prioritization strategies for such eventualities.
+
+
+
+
+
+
+###
+
+```{r, eval=FALSE}
+
+library(EpiDynamics)
+
+parameters <- list(beta = matrix(c(2.089, 2.089, 2.086, 2.037,
+                                   2.089, 9.336, 2.086, 2.037,
+                                   2.086, 2.086, 2.086, 2.037,
+                                   2.037, 2.037, 2.037, 2.037),
+                                 nrow = 4, ncol = 4),
+                   sigma = 0.125, gamma = 0.2,
+                   mu = c(0, 0, 0, 1) / (55 * 365),
+                   nu = c(1 / (55 * 365), 0, 0, 0),
+                   n = c(0.413,0.293,0.249,0.044))
+initials <- c(S = c(0.25, 0.1, 0.1, 0.008),
+              E = c(0.0001, 0.0001, 0.0001, 0.0001),
+              I = c(0.0001, 0.0001, 0.0001, 0.0001),
+              R = c(0.0298, 0.04313333, 0.02313333, 0.032513333))
+# Solve and plot.
+# Uncomment the following lines (running it takes more than a few seconds):
+ seir4.age.classes <- SEIR4AgeClasses(pars = parameters,
+                                      init = initials,
+                                      time = 0:100)
+ 
+
+ seir4.age.classes$results%>%pivot_longer(cols=-1,names_to="Class")%>%filter(Class=="R1"|Class=="R2"|Class=="R3"|Class=="R4")%>%
+   ggplot(aes(x=time,y=value))+
+            geom_line(aes(color=Class),size=2)+
+   xlim(c(0,100))+
+   scale_color_brewer(palette = "Dark2",name="Prioritization",label=c("Cases+Elderly","Age structure","Population","Equal"))+
+   labs(y="Reduction in mortality",x="Vaccine acceptance ratio (%)")+
+   theme_clean()
+ 
+
+```
+
+
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Time to vaccinate
+
+**How long will it take to vaccinate all >60 years old if x% healthcare workers participate in the vaccination efforts assuming each HCW can vaccinate 10 people/day?**
+Based on data from UNICEF on the number of health care workers present in the region) and 
+assuming that each medical (and paramedical) healthcare worker can vaccinate 10 people per day, how long will it take to vaccinate all elderly people in the region if only x% of HCW are equipped to provide vaccination.
+
+
+$$
+Time to vaccinate=\frac{Elderly population}{pct HCW participating * Number of HCW in the Region * 10}
+$$
+
+
+Row 
+-----------------------------------------------------------------------
+
+
+### Time to vaccinate
+
+```{r}
+
+c<-data_frame(mdg2)%>%select(-geometry)
+percent.hcf<-rep(1:100, each=22)
+NAME<-rep(c$NAME,100)
+n60<-rep(c$n60,100)
+pop<-rep(c$pop,100)
+vaccinators<-rep((c$MEDICAL+c$PARAMEDICAL),100)
+d<-data.frame(NAME,"parthcf"=percent.hcf/100,n60,pop,vaccinators)
+d%>%mutate(time=(n60/(vaccinators*10*parthcf)))->d
+
+d%>%group_by(parthcf)%>%summarise(median=median(time))->e
+ggplot(d,aes(x=parthcf,y=time))+
+  geom_line(aes(color=NAME))+
+  geom_line(data=e,aes(x=parthcf,y=median),size=1.5)+
+  scale_y_continuous(breaks=c(seq(0,1095,30)),name="Time to vaccinate (days)")+
+  coord_cartesian(ylim=c(0,365))+
+  scale_x_continuous(limits=c(0,1),breaks=c(seq(0,1,0.1)),name = "Proportion of vaccinating HCW")+
+  scale_color_discrete(name="Region",guide=FALSE)+
+  theme_clean()->timeto
+
+ggplotly(timeto)
+
+```
+
+
+
+
+
