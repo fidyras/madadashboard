@@ -70,11 +70,11 @@ pop$Region<-tolower(pop$Region)
 pop$Region<-mdg2$NAME[amatch(pop$Region, mdg2$NAME, maxDist = 6)]
 
 
-facilities<-read.csv("whohealth.csv")
+facilities<-read.csv("data/whohealth.csv")
 facilities%>%filter(Country=="Madagascar")%>%rename("Region"=Admin1)->facilities
 facilities$Region<-mdg2$NAME[amatch(facilities$Region, mdg2$NAME, maxDist = 6)]
 
-hcw<-read.csv("HCW_Reg.csv")
+hcw<-read.csv("data/HCW_Reg.csv")
 hcw$Region<-tolower(hcw$Region)
 hcw$Region<-mdg2$NAME[amatch(hcw$Region, mdg2$NAME, maxDist = 6)]
 
