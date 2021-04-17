@@ -697,13 +697,14 @@ gen_rt_tabs <- function(region, rt_ests, nowcast) {
   cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
   cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
   
-  subplot(
+  return(
+    subplot(
     style(ggplotly(rp), hoverinfo = "none"),
     style(ggplotly(cp), hoverinfo = "none"),
     nrows = 2, 
     shareX = TRUE, shareY = FALSE
   )
-  
+  )
 }
   
 ```
