@@ -8,7 +8,6 @@ output:
     theme: bootstrap
     source_code: https://github.com/fidyras/madadashboard
     navbar:
-  
       - { title: "<img style=\"width: 16px;\" src=\"www/us16.png\" />   English", href: "dashboard_EN.html"} 
       - { title: "<img style=\"width: 16px;\" src=\"www/mada16.png\" />   Malagasy", href: "index.html"}
       - { title: "<img style=\"width: 16px;\" src=\"www/france16.png\" />   French", href: "dashboard_fr.html"}
@@ -670,7 +669,7 @@ gen_rt_tabs <- function(region, rt_ests, nowcast) {
     scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
     scale_linetype_manual(values = c(2, 1), name = "") +
     scale_fill_manual(values = cols, name = "") +
-    ylim(c(0.5, 2.5))
+    ylim(c(0.5, 2.5)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
   
   # Manually fix legends
@@ -697,13 +696,14 @@ gen_rt_tabs <- function(region, rt_ests, nowcast) {
   cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
   cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
   
-  subplot(
+  return(
+    subplot(
     style(ggplotly(rp), hoverinfo = "none"),
     style(ggplotly(cp), hoverinfo = "none"),
     nrows = 2, 
     shareX = TRUE, shareY = FALSE
   )
-  
+  )
 }
   
 ```
