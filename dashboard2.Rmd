@@ -601,7 +601,7 @@ rt_ests <-
   )
 nowcast <- 
   data.table::fread(
-    "https://raw.githubusercontent.com/labmetcalf/mada-rt/master/latest/nowcast.csv"
+    "https://raw.githubusercontent.com/labmetcalf/mada-rt/master/latest/case_cast.csv"
   )
 ```
 \
@@ -612,7 +612,7 @@ The time varying reproductive number (R~t~), which represents the average number
 If R~t~ in the population is greater than 1, cases will continue to grow in number. If R~t~ is less than 1, case numbers will decline. The higher the value of R~t~ above 1, the faster an epidemic will grow. 
 \
 \
-R~t~ was estimated using the method described [here](https://epiforecasts.io/covid/), using the R packages [`epiNow`](https://epiforecasts.io/EpiNow/), [`epiSoon`](https://github.com/epiforecasts/EpiSoon), and [`epiEstim`](https://cran.r-project.org/web/packages/EpiEstim/index.html), code available [here](https://github.com/labmetcalf/mada-rt).
+R~t~ was estimated using the using the R packages [`epiNow`](https://epiforecasts.io/EpiNow/), [`epiSoon`](https://github.com/epiforecasts/EpiSoon), and [`epiEstim`](https://cran.r-project.org/web/packages/EpiEstim/index.html), code available [here](https://github.com/labmetcalf/mada-rt).
 \
 \
 These estimates were last updated on `r format(min(ymd(rt_summary$date_ests)), "%Y-%m-%d")`
@@ -650,145 +650,80 @@ valueBox(expected,
 
 Row {.tabset data-height=800}
 -----------------------------------------------------------------------
-### **National**
 
-```{r}
-ggplot(filter(rt_ests, region == "National", date >= "2020-03-23"), 
-       aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
-  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  labs(x = "Date", y = "Effective reproductive number") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  scale_linetype_manual(values = c(2, 1), name = "Estimate") +
-  scale_fill_manual(values = c("blue", "navy"), name = "Estimate") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
-# Manually fix legends
-rp <- ggplotly(rtcast)
-rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
-rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
-nowcast %>%
-  mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
-now_cols <- c("blue", "navy")
-names(now_cols) <- c("Observed by report date", "nowcast")
-ggplot(filter(nowcast, region == "National", date >= "2020-03-23"), 
-       aes(x = ymd(date), group = type, fill = type)) +
-  geom_col(aes(y = median), alpha = 0.8) +
-  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
-  scale_fill_manual(values = now_cols, name = "") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
-  labs(x = "Date", y = "Cases") +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 45, hjust = 1)) -> now
-# Manually fix legends
-cp <- ggplotly(now)
-cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
-cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
-subplot(
-  style(ggplotly(rp), hoverinfo = "none"),
-  style(ggplotly(cp), hoverinfo = "none"),
-  nrows = 2, 
-  shareX = TRUE
-)
+```{r helper}
+# Helper to autogenerate tabs
+gen_rt_tabs <- function(region, rt_ests, nowcast) {
+  
+  mycolors <- c(mycolors, National = "navy")
+  cols <- c(alpha(mycolors[names(mycolors) == region], 0.9), 
+            alpha(mycolors[names(mycolors) == region], 0.7), 
+            alpha(mycolors[names(mycolors) == region], 0.4))
+  
+  names(cols) <- c("Observed by report date", "nowcast", "forecast")
+  ggplot(filter(rt_ests, region == !!region, date >= "2021-03-15"), 
+         aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
+    geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+    geom_hline(yintercept = 1, linetype = 3) +
+    labs(x = "Date", y = "Effective reproductive number") +
+    scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+    scale_linetype_manual(values = c(2, 1), name = "") +
+    scale_fill_manual(values = cols, name = "") +
+    ylim(c(0.5, 2.5))
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
+  
+  # Manually fix legends
+  rp <- ggplotly(rtcast)
+  rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
+  rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
+  
+  nowcast %>%
+    mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
+  ggplot(filter(nowcast, region == !!region, date >= "2021-03-15"), 
+         aes(x = ymd(date), group = type, fill = type)) +
+    geom_col(aes(y = median), alpha = 0.8) +
+    geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
+    scale_fill_manual(values = cols, name = "") +
+    scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+    guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+    labs(x = "Date", y = "Cases") +
+    theme(legend.position = "bottom", 
+          axis.text.x = element_text(angle = 45, hjust = 1)) -> now
+  
+  # Manually fix legends
+  cp <- ggplotly(now)
+  cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
+  cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
+  
+  subplot(
+    style(ggplotly(rp), hoverinfo = "none"),
+    style(ggplotly(cp), hoverinfo = "none"),
+    nrows = 2, 
+    shareX = TRUE, shareY = FALSE
+  )
+  
+}
+  
 ```
 
-### **Analamanga** 
+```{r autotabs, results = 'asis'}
+# order by case #s
+nowcast %>% 
+  group_by(region) %>% 
+  filter(type == "Observed by report date") %>% 
+  summarize(cases = sum(median)) %>% 
+  arrange(desc(cases)) -> regs
 
-```{r}
-cols <- c(alpha(mycolors[names(mycolors) == "Analamanga"], 0.7), 
-          alpha(mycolors[names(mycolors) == "Analamanga"], 0.4))
-names(cols) <- c("nowcast", "forecast")
-ggplot(filter(rt_ests, region == "Analamanga", date >= "2020-03-23"), 
-       aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
-  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  labs(x = "Date", y = "Effective reproductive number") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  scale_linetype_manual(values = c(2, 1), name = "") +
-  scale_fill_manual(values = cols, name = "") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
-# Manually fix legends
-rp <- ggplotly(rtcast)
-rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
-rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
-now_cols <- cols
-names(now_cols) <- c("Observed by report date", "nowcast")
-nowcast %>%
-  mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
-ggplot(filter(nowcast, region == "Analamanga", date >= "2020-03-23"), 
-       aes(x = ymd(date), group = type, fill = type)) +
-  geom_col(aes(y = median), alpha = 0.8) +
-  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
-  scale_fill_manual(values = now_cols, name = "") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
-  labs(x = "Date", y = "Cases") +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 45, hjust = 1)) -> now
-# Manually fix legends
-cp <- ggplotly(now)
-cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
-cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
-subplot(
-  style(ggplotly(rp), hoverinfo = "none"),
-  style(ggplotly(cp), hoverinfo = "none"),
-  nrows = 2, 
-  shareX = TRUE
-)
-       
+for(i in 1:length(regs$region)) {
+  p <- gen_rt_tabs(region = regs$region[i], rt_ests, nowcast)
+  cat(paste("###", regs$region[i]), "\n")
+  cat(as.character(htmltools::tagList(p)))
+}
 ```
 
 
-### **Atsinanana** 
-
-```{r}
-cols <- c(alpha(mycolors[names(mycolors) == "Atsinanana"], 0.7), 
-          alpha(mycolors[names(mycolors) == "Atsinanana"], 0.4))
-names(cols) <- c("nowcast", "forecast")
-ggplot(filter(rt_ests, region == "Atsinanana", date >= "2020-03-23"), 
-       aes(x = as.Date(date), y = median, group = rt_type, fill = rt_type)) +
-  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
-  geom_hline(yintercept = 1, linetype = 3) +
-  labs(x = "Date", y = "Effective reproductive number") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  scale_linetype_manual(values = c(2, 1), name = "") +
-  scale_fill_manual(values = cols, name = "") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
-# Manually fix legends
-rp <- ggplotly(rtcast)
-rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
-rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
-now_cols <- cols
-names(now_cols) <- c("Observed by report date", "nowcast")
-nowcast %>%
-  mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
-ggplot(filter(nowcast, region == "Atsinanana", date >= "2020-03-23"), 
-       aes(x = ymd(date), group = type, fill = type)) +
-  geom_col(aes(y = median), alpha = 0.8) +
-  geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
-  scale_fill_manual(values = now_cols, name = "") +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
-  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
-  labs(x = "Date", y = "Cases") +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 45, hjust = 1)) -> now
-# Manually fix legends
-cp <- ggplotly(now)
-cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
-cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
-subplot(
-  style(ggplotly(rp), hoverinfo = "none"),
-  style(ggplotly(cp), hoverinfo = "none"),
-  nrows = 2, 
-  shareX = TRUE, shareY = FALSE
-)
-       
 ```
 
 

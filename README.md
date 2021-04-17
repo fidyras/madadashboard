@@ -8,7 +8,7 @@ Data are obtained from daily press briefings presented by the Coronavirus Operat
 The data on the coronavirus cases presented on this dashboard are updated daily and are available [here](https://docs.google.com/spreadsheets/d/1oQJl4HiTviKAAhCjMmg0ipGcO79cZg6gSHrdTuQID_w/edit?usp=sharing)for download. 
 
 ## Workflow
-We use `Rmarkdown` and `flexdashboard` to create html outputs and host the dashboard on github pages. Instructions for hosting static html pages without are Jekyll are [here](https://bookdown.org/yihui/blogdown/github-pages.html#fn39). 
+We use `Rmarkdown` and `flexdashboard` to create html outputs and host the dashboard on github pages. Instructions for hosting static html pages without Jekyll are [here](https://bookdown.org/yihui/blogdown/github-pages.html#fn39). 
 
 The two key ingredients:
 - A hidden file [.nojekyll](.nojekyll) at the top level of your repository.
