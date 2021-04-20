@@ -652,7 +652,7 @@ Row {.tabset data-height=800}
 
 ```{r helper}
 # Helper to autogenerate tabs
-gen_rt_tabs <- function(region, rt_ests, nowcast) {
+gen_rt_tabs <- function(region, rt_ests, nowcast, minrt = 0) {
   
   mycolors <- c(mycolors, National = "navy")
   cols <- c(alpha(mycolors[names(mycolors) == region], 0.9), 
@@ -669,7 +669,7 @@ gen_rt_tabs <- function(region, rt_ests, nowcast) {
     scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
     scale_linetype_manual(values = c(2, 1), name = "") +
     scale_fill_manual(values = cols, name = "") +
-    ylim(c(0.5, 2.5)) +
+    expand_limits(y=0) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) -> rtcast
   
   # Manually fix legends
@@ -677,11 +677,15 @@ gen_rt_tabs <- function(region, rt_ests, nowcast) {
   rp[['x']][['data']][[1]][['name']] <- "R<sub>t</sub> Forecast"
   rp[['x']][['data']][[2]][['name']] <- 'R<sub>t</sub> Nowcast'
   
-  nowcast %>%
-    mutate(median = ifelse(type == "nowcast", NA, median)) -> nowcast
+  
   ggplot(filter(nowcast, region == !!region, date >= "2021-03-15"), 
          aes(x = ymd(date), group = type, fill = type)) +
-    geom_col(aes(y = median), alpha = 0.8) +
+    geom_col(data = filter(nowcast, region == !!region, date >= "2021-03-15", 
+                      type == "Observed by report date"),
+             aes(y = median, fill = type), alpha = 0.8, position = "dodge") +
+    geom_col(data = filter(nowcast, region == !!region, date >= "2021-03-15", 
+                      type != "Observed by report date"),
+             aes(y = median, fill = type), alpha = 0.8, position = "dodge") + 
     geom_ribbon(aes(ymin = bottom, ymax = top), alpha = 0.4) +
     geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.7) +
     scale_fill_manual(values = cols, name = "") +
@@ -694,8 +698,8 @@ gen_rt_tabs <- function(region, rt_ests, nowcast) {
   # Manually fix legends
   cp <- ggplotly(now)
   cp[['x']][['data']][[1]][['name']] <- 'Cases by confirmation \n date (observed)'
-  cp[['x']][['data']][[2]][['name']] <- 'Cases by infection \n date (estimated)'
-  
+  cp[['x']][['data']][[2]][['name']] <- 'Case Forecast'
+  cp[['x']][['data']][[3]][['name']] <- 'Case Nowcast'
   return(
     subplot(
     style(ggplotly(rp), hoverinfo = "none"),
