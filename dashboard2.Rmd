@@ -422,7 +422,7 @@ cases %>%
   labs(x = f.tr("mortality_t_xlab"),
        y = f.tr("mortality_t_ylab")) +
   scale_x_date(date_breaks = "2 weeks") +
-  scale_y_continuous(limits = c(0, 15)) +
+  #scale_y_continuous(limits = c(0, 15)) +
   scale_fill_manual(
     name = "",
     values = c("deaths" = "#ff6262"),
