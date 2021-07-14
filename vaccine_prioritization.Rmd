@@ -112,7 +112,7 @@ region_cumulative%>%
   rename(Region=region)%>%
   left_join(pop_age_Region)->pop_age_Region
 
-
+pop_age_Region%>%mutate(prop.cases=cases/sum(cases),prop.deaths=deaths/sum(deaths))->pop_age_Region
 mdg2<-mdg2%>%left_join(pop_age_Region,by=c("NAME"="Region"))
 
 cases_region$death[which(is.na(cases_region$death))]<-0
