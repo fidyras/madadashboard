@@ -275,7 +275,7 @@ daily.cases <- ggplot(data = cases, aes(x = Date, y = cases.mov.avg)) +
                                 f.tr("times_series_c_textlab"), ":", round(cases.mov.avg, 2), "<br>"), HTML)),
            position = "dodge",
            alpha = 0.4) +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m-%d") +
   geom_line(aes(x = Date, y = cases.mov.avg, color = "cases.mov.avg"),
             size = 1) +
   scale_fill_manual(name = "", values = c("cases" = "#1B9E77")) +
@@ -295,11 +295,16 @@ Row
 -----------------------------------------------------------------------
 ### `r f.tr("map_of_cases_header")`
 
-`r f.tr("map_of_cases_note")`
 
 ```{r}
-mada_regions <-
-  left_join(mdg2, region_cumulative, by = c("NAME" = "region"))
+
+mindate<- last(sort(cases_region$Date))-15
+recent <- cases_region %>% filter (Date>mindate) %>% group_by(region) %>% summarise (cas_recent=sum(cases))
+
+mada_regions <-mdg2 %>% 
+  left_join(region_cumulative, by = c("NAME" = "region")) %>%  
+  left_join(recent,by = c("NAME" = "region"))
+
 bins <- round(exp(pretty(log(region_cumulative$cases), n = 10)), 0) # logged breaks
 pal <- colorBin("YlOrRd", domain = mada_regions$cases, bins = bins)
 labels <- sprintf(
@@ -341,7 +346,53 @@ map %>% addProviderTiles(providers$Esri.WorldStreetMap)
 ```
 
 
+### `r f.tr("map_of_recent_cases_header")`
+```{r}
+bins_recent <- round(exp(pretty(log(recent$cas_recent), n = 10)), 0) # logged breaks
+pal <- colorBin("YlOrRd", domain = mada_regions$cas_recent, bins = bins_recent)
+labels <- sprintf(
+  "<strong>%s</strong><br/> Cases: %i <br/>",
+  mada_regions$NAME,
+  mada_regions$cas_recent
+) %>% lapply(htmltools::HTML)
+map_recent <- leaflet()  %>%
+  addTiles() %>%
+  addPolygons(
+    data = mada_regions,
+    color = "black",
+    weight = 0.001,
+    smoothFactor = 0.1,
+    fillColor = ~ pal(cas_recent),
+    fillOpacity = 0.6,
+    dashArray = NULL,
+    label = labels,
+    highlightOptions = highlightOptions(
+      weight = 3,
+      color = "black",
+      dashArray = NULL,
+      fillOpacity = 0.75,
+      bringToFront = TRUE
+    ),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    "bottomright",
+    pal = pal,
+    values = bins,
+    title = f.tr("map_of_cases_legend_caption")
+  )
+map_recent %>% addProviderTiles(providers$Esri.WorldStreetMap)
+
+```
+
+
+
 ```{r, warning=FALSE}
+
 # This code uses the library crosstalk to link the graphs
 # Colors pulled from google sheets (please change as needed!)
 mycolors <- reg_cols$color
@@ -385,6 +436,9 @@ sd%>%
         axis.text.x = element_text(angle = 45, hjust = 1)) -> modavg.curv
 ```
 
+
+Row 
+-----------------------------------------------------------------------
 
 ### `r format(f.tr("time_series_b_header"))` & `r format(f.tr("time_series_c_header"))`
 
@@ -495,7 +549,7 @@ cases_region%>%
   geom_line(aes(x=Date,y=cfr,color=region,group=region),alpha=0.2)+
   geom_line(data=cases,aes(x = Date, y = cfr),method="gam",se=FALSE) +
   scale_y_continuous(name="case fatality rate (%)",limits = c(0,7), breaks=seq(0,10,0.5))+
-  scale_x_date(date_breaks = "2 weeks")+
+  scale_x_date(date_breaks = "1 month")+
   scale_color_manual(values = mycolors, name = "Region")+
   theme(legend.position = "none", 
         panel.background = element_blank(),
@@ -540,7 +594,7 @@ ggplot(data = tests_pos,
                              name, ":", label, "<br>"), HTML))) +
   geom_col(size = 0.5, position = "stack") +
   # geom_point(size = 0.5) +
-  scale_x_date(date_breaks = "2 weeks", date_labels = "%Y-%m-%d") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%Y-%m-%d") +
   scale_fill_manual(values = test_cols, name = "") +
   labs(x = f.tr("tests_t_xlab"), y = f.tr("tests_t_ylab")) +
   theme(panel.background = element_blank(),
@@ -551,7 +605,8 @@ ggplotly(tests.ts, tooltip = "text") %>%
 
 ```
 
-
+Row 
+-----------------------------------------------------------------------
 
 ### Positivity
 
@@ -567,7 +622,7 @@ cases%>%
            alpha = 0.7) +
   geom_line(aes(y = positivity.mov.avg, color = "positivity.mov.avg"), size = 1) +
   scale_y_continuous(labels=percent)+
-  scale_x_date(date_breaks = "2 weeks",
+  scale_x_date(date_breaks = "1 month",
                limits = c(as.Date("2020-05-18"), Sys.Date())) +
   labs(x = f.tr("daily_pos_xlab"),
        y = f.tr("daily_pos_ylab")) +
