@@ -100,7 +100,9 @@ all.dates<-data.frame(list(Date=seq(min(cases$Date),max(cases$Date),by="day")))
 cases<-merge(all.dates, cases, all=T)
 cases$n.cases[which(is.na(cases$n.cases))]<-0
 cases$n.deaths[which(is.na(cases$n.deaths))]<-0
-cases%>%arrange(Date)%>%select(Date,"cases"=n.cases,"deaths"=n.deaths,"tests"=n.tests,"total.tests"=Global.total.test)%>%
+cases%>%
+  arrange(Date)%>%
+  select(Date,"cases"=n.cases,"deaths"=n.deaths,"tests"=n.tests,"total.tests"=Global.total.test)%>%
   mutate(cases.cumsum = cumsum(cases),
          deaths.cumsum = cumsum(deaths),
          positivity=round((cases/tests),4)) %>% #compute cumulative number of cases per region
@@ -114,7 +116,9 @@ mdg2 <- read_sf("data/regions/MDG_ADM1.shp")
 # Cases by region
 cases_region$week<-as.Date(cases_region$week)
 cases_region$region[is.na(cases_region$region)] = "unspecified"
-cases_region%>%group_by(region)%>%summarise(cases=sum(cases),deaths=sum(death,na.rm=TRUE))->region_cumulative #sum of cases by region since March
+cases_region%>%
+  group_by(region)%>%
+  summarise(cases=sum(cases),deaths=sum(death,na.rm=TRUE))->region_cumulative #sum of cases by region since March
 cases_region$death[which(is.na(cases_region$death))]<-0
 cases_region$region <- mdg2$NAME[amatch(cases_region$region, mdg2$NAME, maxDist = 6)]
 cases_region$region[is.na(cases_region$region)] = "unspecified"
