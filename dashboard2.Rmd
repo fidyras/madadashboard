@@ -210,8 +210,8 @@ valueBox(
 ```{r}
 
 valueBox(
-  value = format(last(cases$cases), big.mark = ","),
-  caption = paste("Number of cases reported on",
+  value = format(round(last(cases$cases.mov.avg),2), big.mark = ","),
+  caption = paste("Average number of cases reported daily between",format(last(cases$Date)-7, format = "%B %d %Y"), " and ",
     format(last(cases$Date), format = "%B %d %Y")),
   icon = "fa-viruses",
   color = "warning"
