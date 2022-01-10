@@ -122,7 +122,7 @@ cases_region%>%
 cases_region$death[which(is.na(cases_region$death))]<-0
 cases_region$region <- mdg2$NAME[amatch(cases_region$region, mdg2$NAME, maxDist = 6)]
 cases_region$region[is.na(cases_region$region)] = "unspecified"
-cases_region%>%
+cases_region%>% filter(region!="unspecified") %>% 
   rename("Date"=week)%>%
   arrange(Date)%>%
   group_by(region) %>%
